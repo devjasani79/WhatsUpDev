@@ -6,12 +6,18 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    host: false // Disable host exposure
+    host: false
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -19,6 +25,15 @@ export default defineConfig({
           ui: ['lucide-react', 'sonner', 'framer-motion']
         }
       }
-    }
+    },
+    chunkSizeWarningLimit: 1000,
+    target: 'esnext',
+    assetsInlineLimit: 4096,
+    cssCodeSplit: true,
+    emptyOutDir: true
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'lucide-react', 'sonner', 'framer-motion'],
+    exclude: ['@supabase/supabase-js']
   }
 });
