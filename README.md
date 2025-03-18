@@ -47,7 +47,7 @@ A modern, feature-rich chat application built with React, Node.js, and Socket.IO
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/whatsupdev.git
+git clone https://github.com/devjasani79/WhatsUpDev.git
 cd whatsupdev
 ```
 
@@ -142,4 +142,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [React](https://reactjs.org/)
 - [Socket.IO](https://socket.io/)
 - [TailwindCSS](https://tailwindcss.com/)
-- [MongoDB](https://www.mongodb.com/) 
+- [MongoDB](https://www.mongodb.com/)
