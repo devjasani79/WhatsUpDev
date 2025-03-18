@@ -96,7 +96,7 @@ function ChatMessages() {
 
   const handleFileUpload = async (e) => {
     try {
-    const file = e.target.files[0];
+      const file = e.target.files[0];
       if (!file) return;
 
       // Check file size (50MB limit)
@@ -118,31 +118,14 @@ function ChatMessages() {
         return;
       }
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', messageType);
-
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch('http://localhost:3000/api/messages/upload', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to upload file');
-      }
-
-      const data = await response.json();
-      await sendMessage(selectedChat._id, data.url, messageType);
-      toast.success('File sent successfully');
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Data = event.target.result;
+        await sendMessage(selectedChat._id, base64Data, messageType);
+        toast.success('File sent successfully');
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Failed to upload file:', error);
       toast.error(error.message || 'Failed to upload file');
@@ -185,34 +168,14 @@ function ChatMessages() {
       mediaRecorder.onstop = async () => {
         try {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
-          
-          // Create FormData and append file
-          const formData = new FormData();
-          formData.append('file', audioBlob, 'voice-message.webm');
-
-          const token = localStorage.getItem('token');
-          if (!token) {
-            throw new Error('No authentication token found');
-          }
-
-          const response = await fetch('http://localhost:3000/api/messages/upload', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || 'Failed to upload audio');
-          }
-
-          const data = await response.json();
-          await sendMessage(selectedChat._id, data.url, 'audio');
-          toast.success('Voice message sent');
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            await sendMessage(selectedChat._id, event.target.result, 'audio');
+            toast.success('Voice message sent');
+          };
+          reader.readAsDataURL(audioBlob);
         } catch (error) {
-          console.error('Failed to upload audio:', error);
+          console.error('Failed to process audio:', error);
           toast.error(error.message || 'Failed to send voice message');
         }
       };
@@ -335,8 +298,6 @@ function ChatMessages() {
               className="max-w-sm rounded-lg shadow-md"
               playsInline
             >
-              <source src={message.content} type="video/mp4" />
-              <source src={message.content} type="video/webm" />
               Your browser does not support the video tag.
             </video>
             <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -360,8 +321,6 @@ function ChatMessages() {
               preload="metadata"
               className="flex-1"
             >
-              <source src={message.content} type="audio/mpeg" />
-              <source src={message.content} type="audio/wav" />
               Your browser does not support the audio element.
             </audio>
             <a 
@@ -405,7 +364,7 @@ function ChatMessages() {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:3000/api/messages/${messageId}`, {
+      const response = await fetch(api.deleteMessage(messageId), {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,

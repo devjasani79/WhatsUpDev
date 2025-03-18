@@ -1,5 +1,6 @@
 // services/socket.js
-import io from 'socket.io-client';
+import { io } from 'socket.io-client';
+import { socketUrl } from './api';
 import { toast } from 'sonner';
 
 class SocketService {
@@ -9,57 +10,41 @@ class SocketService {
     this.maxReconnectAttempts = 5;
   }
 
-  connect() {
-    try {
-      const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user'));
-
-      if (!token || !user) {
-        throw new Error('Authentication required');
-      }
-
-      this.socket = io('http://localhost:3000', {
+  connect(token) {
+    if (!this.socket) {
+      this.socket = io(socketUrl, {
         auth: { token },
-        query: { userId: user._id },
         transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       });
 
-      this.setupEventListeners();
-    } catch (error) {
-      console.error('Socket connection error:', error);
-      toast.error('Failed to connect to chat server');
+      this.socket.on('connect', () => {
+        console.log('Socket connected');
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        this.handleReconnect();
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        if (reason === 'io server disconnect') {
+          // Server disconnected us, try to reconnect
+          this.connect(token);
+        }
+      });
+
+      this.socket.on('auth_error', () => {
+        console.error('Socket authentication error');
+        toast.error('Authentication failed');
+        window.location.href = '/auth';
+      });
     }
-  }
-
-  setupEventListeners() {
-    if (!this.socket) return;
-
-    this.socket.on('connect', () => {
-      console.log('Socket connected');
-      this.reconnectAttempts = 0;
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      this.handleReconnect();
-    });
-
-    this.socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
-      if (reason === 'io server disconnect') {
-        // Server disconnected us, try to reconnect
-        this.connect();
-      }
-    });
-
-    this.socket.on('auth_error', () => {
-      console.error('Socket authentication error');
-      toast.error('Authentication failed');
-      window.location.href = '/auth';
-    });
+    return this.socket;
   }
 
   handleReconnect() {
@@ -83,23 +68,23 @@ class SocketService {
   // Chat room methods
   joinRoom(chatId) {
     if (!this.socket) return;
-    this.socket.emit('join chat', chatId);
+    this.socket.emit('join_chat', chatId);
   }
 
   leaveRoom(chatId) {
     if (!this.socket) return;
-    this.socket.emit('leave chat', chatId);
+    this.socket.emit('leave_chat', chatId);
   }
 
   // Messaging methods
-  sendMessage(message) {
+  sendMessage(chatId, message) {
     if (!this.socket) return;
-    this.socket.emit('new message', message);
+    this.socket.emit('send_message', { chatId, message });
   }
 
   onMessageReceived(callback) {
     if (!this.socket) return;
-    this.socket.on('message received', callback);
+    this.socket.on('new_message', callback);
   }
 
   // Typing indicators
@@ -110,50 +95,57 @@ class SocketService {
 
   stopTyping(chatId, userId) {
     if (!this.socket) return;
-    this.socket.emit('stop typing', { chatId, userId });
+    this.socket.emit('stop_typing', { chatId, userId });
   }
 
   onTyping(callback) {
     if (!this.socket) return;
-    this.socket.on('typing', callback);
+    this.socket.on('user_typing', callback);
   }
 
   onStopTyping(callback) {
     if (!this.socket) return;
-    this.socket.on('stop typing', callback);
+    this.socket.on('user_stop_typing', callback);
   }
 
   // Message status methods
   markMessagesAsRead(chatId, userId) {
     if (!this.socket) return;
-    this.socket.emit('read messages', { chatId, userId });
+    this.socket.emit('mark_as_read', { chatId, userId });
   }
 
   onMessagesRead(callback) {
     if (!this.socket) return;
-    this.socket.on('messages read', callback);
+    this.socket.on('message_read', callback);
   }
 
   // Message unsend
   unsendMessage(messageId, chatId) {
     if (!this.socket) return;
-    this.socket.emit('message unsend', { messageId, chatId });
+    this.socket.emit('unsend_message', { messageId, chatId });
   }
 
   onMessageUnsent(callback) {
     if (!this.socket) return;
-    this.socket.on('message unsent', callback);
+    this.socket.on('message_deleted', callback);
   }
 
   // User status
   onUserOnline(callback) {
     if (!this.socket) return;
-    this.socket.on('user online', callback);
+    this.socket.on('user_typing', callback);
   }
 
   onUserOffline(callback) {
     if (!this.socket) return;
-    this.socket.on('user offline', callback);
+    this.socket.on('user_stop_typing', callback);
+  }
+
+  // Remove listeners
+  removeAllListeners() {
+    if (this.socket) {
+      this.socket.removeAllListeners();
+    }
   }
 }
 

@@ -24,7 +24,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: process.env.CLIENT_URL || "https://whatsupdev-git-main-devjasani79s-projects.vercel.app",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -38,7 +38,7 @@ const __dirname = path.dirname(__filename);
 app.use(helmet());
 app.use(compression());
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: process.env.CLIENT_URL || "https://whatsupdev-git-main-devjasani79s-projects.vercel.app",
   credentials: true
 }));
 
@@ -50,9 +50,6 @@ app.use('/api/upload', uploadLimiter);
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

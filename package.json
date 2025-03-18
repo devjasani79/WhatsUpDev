@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "server:dev": "nodemon server/index.js"
+    "server:dev": "nodemon server/index.js",
+    "start": "node server/index.js",
+    "build:client": "vite build",
+    "build:server": "cd server && npm install --production",
+    "deploy": "npm run build:client && npm run build:server"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
