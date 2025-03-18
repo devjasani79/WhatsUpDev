@@ -6,12 +6,16 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import compression from 'compression';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import chatRoutes from './routes/chat.js';
 import messageRoutes from './routes/messages.js';
 import { socketHandler } from './socket.js';
+import { apiLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 // Load environment variables
 dotenv.config();
@@ -20,8 +24,9 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"]
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -29,9 +34,22 @@ const io = new Server(httpServer, {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security middleware
+app.use(helmet());
+app.use(compression());
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  credentials: true
+}));
+
+// Rate limiting
+app.use('/api/', apiLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/upload', uploadLimiter);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -45,8 +63,11 @@ app.use('/api/messages', messageRoutes);
 // Socket.io setup
 socketHandler(io);
 
+// Error handling
+app.use(errorHandler);
+
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://devjasani79:WhatsUpDev79@whatsupdev.3aphy.mongodb.net')
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB');
     
@@ -58,4 +79,5 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://devjasani79:WhatsUpDe
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);
+    process.exit(1);
   });

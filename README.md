@@ -56,17 +56,18 @@ cd whatsupdev
 npm install
 ```
 
-3. Create a `.env` file in the root directory:
-```env
-MONGODB_URI=your_mongodb_uri
-JWT_SECRET=your_jwt_secret
-PORT=3000
-```
+3. Set up environment variables:
+   - Copy `.env.example` to `.env`
+   - Update the following variables in `.env`:
+     - `MONGODB_URI`: Your MongoDB connection string
+     - `JWT_SECRET`: A secure random string for JWT signing
+     - `EMAIL_USER` and `EMAIL_PASS`: (Optional) For email functionality
+     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`: (Optional) For SMS functionality
 
 4. Start the development server:
 ```bash
 # Start backend server
-npm run server
+npm run server:dev
 
 # Start frontend development server
 npm run dev
@@ -113,6 +114,16 @@ whatsupdev/
 - GET `/api/messages/:chatId` - Get chat messages
 - POST `/api/messages` - Send message
 - DELETE `/api/messages/:id` - Delete message
+
+## Security Features
+
+- Rate limiting on API endpoints
+- Input validation
+- JWT authentication
+- Secure file uploads
+- CORS protection
+- Helmet security headers
+- Error handling middleware
 
 ## Contributing
 
