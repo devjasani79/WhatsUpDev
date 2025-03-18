@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* Message bubbles */
+.message-bubble {
+  @apply rounded-2xl px-4 py-2 max-w-[85%] break-words shadow-sm;
+}
+
+.message-bubble.own {
+  @apply bg-green-500 text-white rounded-br-none;
+  margin-left: auto;
+}
+
+.message-bubble.other {
+  @apply bg-gray-100 dark:bg-gray-700 rounded-bl-none;
+  margin-right: auto;
+}
+
+/* Message bubble tail */
+.message-bubble.own::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-left: 8px solid #22c55e; /* green-500 */
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+}
+
+.message-bubble.other::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-right: 8px solid #f3f4f6; /* gray-100 */
+  border-left: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+}
+
+/* Dark mode message bubble tail */
+.dark .message-bubble.own::after {
+  border-left-color: #16a34a; /* green-600 */
+}
+
+.dark .message-bubble.other::after {
+  border-right-color: #374151; /* gray-700 */
+}
+
+/* Message bubble hover effect */
+.message-bubble {
+  transition: transform 0.2s ease;
+}
+
+.message-bubble:hover {
+  transform: scale(1.01);
+}
+
+/* Message bubble content */
+.message-bubble p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Message bubble timestamp */
+.message-bubble .timestamp {
+  @apply text-xs opacity-75;
+  margin-top: 0.25rem;
+}
+
+/* Message bubble media content */
+.message-bubble img,
+.message-bubble video,
+.message-bubble audio {
+  @apply rounded-lg max-w-full;
+  margin: 0.25rem 0;
+}
+
+/* Message bubble file attachments */
+.message-bubble .file-attachment {
+  @apply flex items-center gap-2 bg-black/5 dark:bg-white/5 rounded-lg p-2 mt-1;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Dark mode overrides */
+.dark .message-bubble.own {
+  @apply bg-green-600;
+}
+
+.dark .message-bubble.other {
+  @apply bg-gray-700 text-white;
+}
+
+/* Toast customization */
+.dark-toast {
+  @apply bg-gray-800 text-white;
+}
+
+/* Input focus styles */
+input:focus, textarea:focus {
+  @apply outline-none ring-2 ring-green-500 ring-opacity-50;
+}
+
+/* Button styles */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+}
+
+.btn-primary {
+  @apply bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600;
+}
+
+/* Avatar styles */
+.avatar {
+  @apply rounded-full overflow-hidden flex items-center justify-center bg-green-100 dark:bg-gray-700;
+}
+
+.avatar img {
+  @apply w-full h-full object-cover;
+}
+
+.avatar-online::after {
+  content: '';
+  @apply absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800;
+}
