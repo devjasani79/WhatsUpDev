@@ -26,7 +26,7 @@ export const socketHandler = (io) => {
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {
-    console.log('User connected:', socket.user._id);
+    console.log(`🔌 [Socket] User connected: ${socket.user._id}`);
 
     // Join user's personal room
     socket.join(socket.user._id.toString());
@@ -40,16 +40,17 @@ export const socketHandler = (io) => {
     socket.on('setup', (userId) => {
       socket.join(userId);
       socket.emit('connected');
+      console.log(`🔄 [Socket] Setup completed for user: ${userId}`);
     });
 
     socket.on('join chat', (chatId) => {
       socket.join(chatId);
-      console.log('User joined chat:', chatId);
+      console.log(`➡️ [Socket] User ${socket.user._id} joined chat: ${chatId}`);
     });
 
     socket.on('leave chat', (chatId) => {
       socket.leave(chatId);
-      console.log('User left chat:', chatId);
+      console.log(`⬅️ [Socket] User ${socket.user._id} left chat: ${chatId}`);
     });
 
     socket.on('new message', (message) => {
@@ -92,8 +93,9 @@ export const socketHandler = (io) => {
 
         // Notify other participants
         socket.in(chatId).emit('messages read', { chatId, userId });
+        console.log(`📖 [Socket] Messages marked as read in chat ${chatId} by user ${userId}`);
       } catch (error) {
-        console.error('Error marking messages as read:', error);
+        console.error(`❌ [Socket] Error marking messages as read: ${error.message}`);
       }
     });
 
@@ -102,7 +104,7 @@ export const socketHandler = (io) => {
     });
 
     socket.on('disconnect', async () => {
-      console.log('User disconnected:', socket.user._id);
+      console.log(`🔌 [Socket] User disconnected: ${socket.user._id}`);
       
       // Update user's offline status and last seen
       await User.findByIdAndUpdate(socket.user._id, {

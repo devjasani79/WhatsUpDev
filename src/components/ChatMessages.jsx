@@ -111,6 +111,53 @@ function ChatMessages() {
         messageType = 'image';
       } else if (file.type.startsWith('video/')) {
         messageType = 'video';
+        
+        // For videos, create a temporary message with a loading state
+        const tempId = `temp-${Date.now()}`;
+        const tempMessage = {
+          _id: tempId,
+          sender: { _id: user.id },
+          content: 'Processing video...',
+          type: 'text',
+          chat: selectedChat._id,
+          createdAt: new Date().toISOString(),
+          isLoading: true
+        };
+        
+        // Add temporary message to the chat
+        useChatStore.getState().addTempMessage(tempMessage);
+        
+        try {
+          // Create smaller thumbnail from the video
+          const thumbnailUrl = await createVideoThumbnail(file);
+          
+          // Create a special video message that includes the file name but not the full content
+          const videoData = {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            thumbnail: thumbnailUrl,
+            url: URL.createObjectURL(file) // Temporary URL for preview
+          };
+          
+          // Send the metadata as the message
+          const sentMessage = await sendMessage(
+            selectedChat._id, 
+            JSON.stringify(videoData), 
+            'video'
+          );
+          
+          // Remove the temporary message
+          useChatStore.getState().removeTempMessage(tempId);
+          
+          toast.success('Video sent successfully');
+          return;
+        } catch (error) {
+          // Remove the temporary message on error
+          useChatStore.getState().removeTempMessage(tempId);
+          toast.error(error.message || 'Failed to send video');
+          return;
+        }
       } else if (file.type.startsWith('audio/')) {
         messageType = 'audio';
       } else {
@@ -118,18 +165,65 @@ function ChatMessages() {
         return;
       }
 
-      // Convert file to base64
+      // For images and audio, use the existing data URL approach
       const reader = new FileReader();
       reader.onload = async (event) => {
-        const base64Data = event.target.result;
-        await sendMessage(selectedChat._id, base64Data, messageType);
-        toast.success('File sent successfully');
+        try {
+          const dataUrl = event.target.result;
+          await sendMessage(selectedChat._id, dataUrl, messageType);
+          toast.success('File sent successfully');
+        } catch (error) {
+          console.error('Failed to send file:', error);
+          toast.error(error.message || 'Failed to send file');
+        }
+      };
+      reader.onerror = () => {
+        toast.error('Failed to read file');
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Failed to upload file:', error);
-      toast.error(error.message || 'Failed to upload file');
+      console.error('Failed to process file:', error);
+      toast.error(error.message || 'Failed to process file');
     }
+  };
+
+  // Helper function to create a video thumbnail
+  const createVideoThumbnail = (file) => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        // Seek to a frame at 25% of the video
+        video.currentTime = Math.min(video.duration * 0.25, 1.0);
+      };
+      
+      video.onseeked = () => {
+        try {
+          // Create a canvas and draw the video frame
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          // Get the thumbnail as a data URL (JPEG, low quality)
+          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.5);
+          URL.revokeObjectURL(video.src);
+          resolve(thumbnailUrl);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Failed to load video for thumbnail creation'));
+      };
+      
+      video.src = URL.createObjectURL(file);
+    });
   };
 
   const handleRecordingTap = () => {
@@ -168,10 +262,21 @@ function ChatMessages() {
       mediaRecorder.onstop = async () => {
         try {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+          
+          // Convert blob to data URL
           const reader = new FileReader();
           reader.onload = async (event) => {
-            await sendMessage(selectedChat._id, event.target.result, 'audio');
-            toast.success('Voice message sent');
+            try {
+              const audioDataUrl = event.target.result;
+              await sendMessage(selectedChat._id, audioDataUrl, 'audio');
+              toast.success('Voice message sent');
+            } catch (error) {
+              console.error('Failed to send voice message:', error);
+              toast.error(error.message || 'Failed to send voice message');
+            }
+          };
+          reader.onerror = () => {
+            toast.error('Failed to process audio recording');
           };
           reader.readAsDataURL(audioBlob);
         } catch (error) {
@@ -286,31 +391,103 @@ function ChatMessages() {
           </div>
         );
       case 'video':
-        return (
-          <div className="relative group">
-            <div className="absolute top-2 left-2 w-5 h-5 text-white z-10">
-              <Video className="w-full h-full" />
+        try {
+          // Handle loading state
+          if (message.isLoading) {
+            return (
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+                <span>Processing video...</span>
+              </div>
+            );
+          }
+          
+          // Try parsing the content if it's in JSON format (new format)
+          let videoData;
+          let isBlob = false;
+          
+          try {
+            videoData = JSON.parse(message.content);
+            
+            // Check if it has a URL property (local playback)
+            if (videoData.url && videoData.url.startsWith('blob:')) {
+              isBlob = true;
+            }
+          } catch (e) {
+            // Not JSON, must be a direct URL (old format)
+            videoData = { url: message.content };
+          }
+          
+          return (
+            <div className="relative group flex flex-col">
+              <div className="absolute top-2 left-2 w-5 h-5 text-white z-10">
+                <Video className="w-full h-full" />
+              </div>
+              
+              {/* Display thumbnail if available */}
+              {videoData.thumbnail && !isBlob && (
+                <div className="relative cursor-pointer" 
+                     onClick={() => window.open(videoData.url || message.content, '_blank')}>
+                  <img 
+                    src={videoData.thumbnail} 
+                    alt="Video thumbnail" 
+                    className="max-w-sm rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-black/50 rounded-full p-3">
+                      <Play className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Show video player for blob URLs (local) or if no thumbnail */}
+              {(isBlob || !videoData.thumbnail) && (
+                <video 
+                  src={videoData.url || message.content} 
+                  controls
+                  preload="metadata"
+                  className="max-w-sm rounded-lg shadow-md"
+                  playsInline
+                >
+                  Your browser does not support the video tag.
+                </video>
+              )}
+              
+              {/* Show file name if available */}
+              {videoData.name && (
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                  <Video className="w-3 h-3 mr-1" />
+                  <span>{videoData.name}</span>
+                  {videoData.size && (
+                    <span className="ml-1">({Math.round(videoData.size / 1024 / 1024 * 10) / 10} MB)</span>
+                  )}
+                </div>
+              )}
+              
+              {/* Download button for local videos */}
+              {isBlob && (
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <a 
+                    href={videoData.url} 
+                    download={videoData.name || "video"} 
+                    className="bg-black/50 p-2 rounded-full text-white hover:bg-black/70"
+                  >
+                    <Download className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
             </div>
-            <video 
-              src={message.content} 
-              controls
-              preload="metadata"
-              className="max-w-sm rounded-lg shadow-md"
-              playsInline
-            >
-              Your browser does not support the video tag.
-            </video>
-            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <a 
-                href={message.content} 
-                download 
-                className="bg-black/50 p-2 rounded-full text-white hover:bg-black/70"
-              >
-                <Download className="w-4 h-4" />
-              </a>
+          );
+        } catch (error) {
+          console.error('Error rendering video:', error);
+          return (
+            <div className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 p-2 rounded-lg flex items-center">
+              <AlertCircle className="mr-2 h-5 w-5" />
+              <span>Error displaying video</span>
             </div>
-          </div>
-        );
+          );
+        }
       case 'audio':
         return (
           <div className="relative flex items-center space-x-2 bg-gray-50 dark:bg-gray-800 rounded-lg p-2 min-w-[200px]">
@@ -318,17 +495,14 @@ function ChatMessages() {
             <audio 
               src={message.content} 
               controls
-              preload="metadata"
-              className="flex-1"
-            >
-              Your browser does not support the audio element.
-            </audio>
+              className="max-w-full"
+            ></audio>
             <a 
               href={message.content} 
               download 
               className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
             >
-              <Download className="w-4 h-4 text-gray-500" />
+              <Download className="w-4 h-4" />
             </a>
           </div>
         );
@@ -364,7 +538,7 @@ function ChatMessages() {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(api.deleteMessage(messageId), {
+      const response = await fetch(`http://localhost:3000/api/messages/${messageId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -481,7 +655,7 @@ function ChatMessages() {
                   )}
                   <div className="relative max-w-[90%]">
               <div
-                className={`rounded-lg p-3 ${
+                className={`max-w-[90%] rounded-lg p-3 ${
                   isOwnMessage
                     ? 'bg-green-500 text-white rounded-br-none'
                           : theme === 'dark'

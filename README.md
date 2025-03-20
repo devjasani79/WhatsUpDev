@@ -1,145 +1,107 @@
-# WhatsupDev - Real-time Chat Application
+# WhatsUpDev Chat Application
 
-A modern, feature-rich chat application built with React, Node.js, and Socket.IO. This application provides real-time messaging capabilities with features like file sharing, voice messages, and user status updates.
+A real-time chat application built with React, Node.js, Express, Socket.IO and MongoDB.
 
 ## Features
 
-- 🔐 User Authentication & Authorization
-- 💬 Real-time Messaging
-- 📱 Responsive Design
-- 🌓 Dark/Light Mode
-- 📸 Image & Video Sharing
-- 🎤 Voice Messages
-- 📄 File Attachments
-- 👥 User Status (Online/Offline)
-- ⏰ Message Timestamps
-- 🔄 Message Read Status
-- 🗑️ Message Unsend
-- 🔍 User Search
-- 👤 User Profiles
+- Real-time messaging with Socket.IO
+- User authentication and account management
+- One-on-one and group chat functionality
+- Multimedia message support (text, images, audio, video)
+- Read receipts and typing indicators
+- Message unsend functionality
+- Online/offline status indicators
+- Dark mode support
 
-## Tech Stack
+## Technology Stack
 
-### Frontend
-- React 18
-- Vite
-- TailwindCSS
-- Zustand (State Management)
-- Socket.IO Client
-- Lucide React (Icons)
-- Sonner (Toast Notifications)
+- **Frontend**: React, Zustand (state management), TailwindCSS
+- **Backend**: Node.js, Express
+- **Database**: MongoDB
+- **Real-time Communication**: Socket.IO
+- **Authentication**: JWT
 
-### Backend
-- Node.js
-- Express
-- MongoDB
-- Socket.IO
-- JWT Authentication
-- Multer (File Uploads)
+## Getting Started
 
-## Prerequisites
+### Prerequisites
 
-- Node.js (v14 or higher)
-- MongoDB
-- npm or yarn
+- Node.js (v16 or higher)
+- MongoDB account or local MongoDB database
+- Git
 
-## Installation
+### Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/devjasani79/WhatsUpDev.git
-cd whatsupdev
-```
+1. Clone the repository
+   ```
+   git clone https://github.com/yourusername/whatsupdev.git
+   cd whatsupdev
+   ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+2. Install dependencies
+   ```
+   npm install
+   ```
 
-3. Set up environment variables:
-   - Copy `.env.example` to `.env`
-   - Update the following variables in `.env`:
-     - `MONGODB_URI`: Your MongoDB connection string
-     - `JWT_SECRET`: A secure random string for JWT signing
-     - `EMAIL_USER` and `EMAIL_PASS`: (Optional) For email functionality
-     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`: (Optional) For SMS functionality
+3. Set up environment variables
+   ```
+   cp .env.example .env
+   ```
+   Then edit `.env` with your configuration details.
 
-4. Start the development server:
-```bash
-# Start backend server
-npm run server:dev
-
-# Start frontend development server
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`
+4. Start the development server
+   ```
+   npm run dev    # Start the client
+   npm run server # Start the server (in a separate terminal)
+   ```
 
 ## Project Structure
 
 ```
-whatsupdev/
-├── src/
-│   ├── components/     # React components
-│   ├── services/      # API and socket services
-│   ├── store/         # Zustand store
-│   ├── pages/         # Page components
-│   └── lib/           # Utility functions
-├── server/
-│   ├── routes/        # API routes
-│   ├── models/        # MongoDB models
-│   ├── middleware/    # Express middleware
-│   └── uploads/       # File uploads
-└── public/            # Static assets
+├── public/                # Static assets
+├── server/                # Backend code
+│   ├── config/            # Configuration files
+│   ├── middleware/        # Express middleware
+│   ├── models/            # Mongoose models
+│   ├── routes/            # API routes
+│   ├── services/          # Business logic
+│   ├── utils/             # Utility functions
+│   ├── validators/        # Request validation
+│   ├── index.js           # Server entry point
+│   └── socket.js          # Socket.IO handlers
+├── src/                   # Frontend code
+│   ├── components/        # React components
+│   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utility functions
+│   ├── pages/             # Page components
+│   ├── services/          # API services
+│   ├── store/             # Zustand stores
+│   ├── types/             # TypeScript types
+│   ├── App.jsx            # Main app component
+│   ├── index.css          # Global styles
+│   └── main.jsx           # App entry point
+├── uploads/               # User uploaded files
+└── package.json           # Dependencies and scripts
 ```
 
-## API Endpoints
+## Environment Variables
 
-### Authentication
-- POST `/api/auth/register` - Register new user
-- POST `/api/auth/login` - Login user
-- POST `/api/auth/logout` - Logout user
+See `.env.example` for required environment variables.
 
-### Users
-- GET `/api/users` - Get all users
-- GET `/api/users/:id` - Get user by ID
-- PUT `/api/users/:id` - Update user profile
+## Security Notes
 
-### Chats
-- GET `/api/chats` - Get user's chats
-- POST `/api/chats` - Create new chat
-- GET `/api/chats/:id` - Get chat by ID
-
-### Messages
-- GET `/api/messages/:chatId` - Get chat messages
-- POST `/api/messages` - Send message
-- DELETE `/api/messages/:id` - Delete message
-
-## Security Features
-
-- Rate limiting on API endpoints
-- Input validation
-- JWT authentication
-- Secure file uploads
-- CORS protection
-- Helmet security headers
-- Error handling middleware
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- JWT tokens are used for authentication
+- Passwords are hashed using bcrypt before storing
+- CORS is configured to allow only specific origins
+- Socket connections are authenticated using JWT
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Author
+
+- Your Name
 
 ## Acknowledgments
 
-- [React](https://reactjs.org/)
-- [Socket.IO](https://socket.io/)
-- [TailwindCSS](https://tailwindcss.com/)
-- [MongoDB](https://www.mongodb.com/)
+- All third-party libraries and resources used in this project 

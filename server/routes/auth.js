@@ -2,17 +2,17 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { validateSignup, validateSignin } from '../validators/authValidator.js';
 
 const router = express.Router();
 import dotenv from "dotenv";
 dotenv.config({ path: "./.env" }); // Explicitly load .env
 
 
-const secretKey = process.env.JWT_SECRET || "fallback_secret";
-console.log("Using Secret Key:", secretKey); // Debugging
+const secretKey = process.env.JWT_SECRET || 'fallback_secret';
 
 // Sign up route
-router.post('/signup', async (req, res) => {
+router.post('/signup', validateSignup, async (req, res) => {
   try {
     const { email, password, fullName } = req.body;
 
@@ -49,13 +49,13 @@ router.post('/signup', async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ message: 'Server error || sign up error' });
+    res.status(500).json({ error: 'Server error during signup' });
+    console.error('❌ [Auth] Signup error:', error.message);
   }
 });
 
 // Sign in route
-router.post('/signin', async (req, res) => {
+router.post('/signin', validateSignin, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -76,7 +76,6 @@ router.post('/signin', async (req, res) => {
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: "7d" }
     );
-    console.log("JWT_SECRET:", process.env.JWT_SECRET || 'fallback_secret');
 
     res.json({
       user: {
@@ -89,8 +88,8 @@ router.post('/signin', async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('Signin error:', error);
-    res.status(500).json({ message: 'Server error || sign in error' });
+    res.status(500).json({ error: 'Server error during signin' });
+    console.error('❌ [Auth] Signin error:', error.message);
   }
 });
 

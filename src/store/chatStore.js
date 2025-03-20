@@ -11,6 +11,19 @@ export const useChatStore = create((set, get) => ({
   typingUsers: new Map(),
   unreadCounts: {},
 
+  // Add temporary message methods
+  addTempMessage: (message) => {
+    set(state => ({
+      messages: [...state.messages, message]
+    }));
+  },
+
+  removeTempMessage: (tempId) => {
+    set(state => ({
+      messages: state.messages.filter(msg => msg._id !== tempId)
+    }));
+  },
+
   fetchChats: async () => {
     try {
       set({ loading: true });
@@ -41,7 +54,7 @@ export const useChatStore = create((set, get) => ({
       
       set({ chats: sortedChats });
     } catch (error) {
-      console.error('Error fetching chats:', error);
+      console.error('%c[Chat Store] Error fetching chats:', 'color: red', error);
       set({ error: error.message });
       toast.error(error.message || 'Failed to fetch chats');
     } finally {
@@ -75,7 +88,7 @@ export const useChatStore = create((set, get) => ({
       const data = await response.json();
       set({ messages: data.messages, loading: false });
     } catch (error) {
-      console.error('Error selecting chat:', error);
+      console.error('%c[Chat Store] Error selecting chat:', 'color: red', error);
       set({ error: error.message, loading: false });
       toast.error('Failed to load chat messages');
     }
@@ -109,7 +122,7 @@ export const useChatStore = create((set, get) => ({
       
       set({ messages: sortedMessages });
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('%c[Chat Store] Error fetching messages:', 'color: red', error);
       set({ error: error.message });
       toast.error(error.message || 'Failed to fetch messages');
     } finally {
@@ -124,6 +137,84 @@ export const useChatStore = create((set, get) => ({
         throw new Error('Authentication token not found');
       }
       
+      // For videos, handle them differently to avoid payload size issues
+      if (type === 'video') {
+        try {
+          // Parse the video data (it should be a stringified object for videos)
+          const videoData = JSON.parse(content);
+          
+          // Create a smaller payload for the server with just the thumbnail
+          const serverPayload = {
+            thumbnail: videoData.thumbnail,
+            name: videoData.name,
+            type: videoData.type,
+            size: videoData.size
+          };
+          
+          // Send the smaller payload to the server
+          const response = await fetch(`http://localhost:3000/api/chats/${chatId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ 
+              content: JSON.stringify(serverPayload), 
+              type 
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Failed to send message');
+          }
+
+          const serverMessage = await response.json();
+          
+          // Create a local message that includes the blob URL for local playback
+          const localMessage = {
+            ...serverMessage,
+            content: content, // Keep the original content with the URL for local playback
+            isLocalVideo: true
+          };
+          
+          // Add message to the local messages list
+          set(state => ({
+            messages: [...state.messages, localMessage],
+          }));
+
+          // Notify other clients about the message
+          socketService.sendMessage({
+            ...serverMessage,
+            chat: get().selectedChat,
+          });
+
+          // Update chat list
+          set(state => {
+            const updatedChats = state.chats.map(chat => 
+              chat._id === chatId 
+                ? { ...chat, lastMessage: serverMessage }
+                : chat
+            );
+            
+            // Sort chats
+            const sortedChats = updatedChats.sort((a, b) => {
+              if (!a.lastMessage) return 1;
+              if (!b.lastMessage) return -1;
+              return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
+            });
+            
+            return { chats: sortedChats };
+          });
+
+          return localMessage;
+        } catch (error) {
+          console.error('%c[Chat Store] Error handling video message:', 'color: red', error);
+          throw new Error('Failed to process video message');
+        }
+      }
+      
+      // For regular messages (text, image, audio)
       const response = await fetch(`http://localhost:3000/api/chats/${chatId}/messages`, {
         method: 'POST',
         headers: {
@@ -176,7 +267,7 @@ export const useChatStore = create((set, get) => ({
 
       return message;
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('%c[Chat Store] Error sending message:', 'color: red', error);
       set({ error: error.message });
       toast.error(error.message || 'Failed to send message');
       throw error;
@@ -212,7 +303,7 @@ export const useChatStore = create((set, get) => ({
 
       return chat;
     } catch (error) {
-      console.error('Error creating chat:', error);
+      console.error('%c[Chat Store] Error creating chat:', 'color: red', error);
       set({ error: error.message });
       toast.error(error.message || 'Failed to create chat');
       throw error;
@@ -248,7 +339,7 @@ export const useChatStore = create((set, get) => ({
 
       return chat;
     } catch (error) {
-      console.error('Error creating group chat:', error);
+      console.error('%c[Chat Store] Error creating group chat:', 'color: red', error);
       set({ error: error.message });
       toast.error(error.message || 'Failed to create group chat');
       throw error;
@@ -260,13 +351,13 @@ export const useChatStore = create((set, get) => ({
       // Get user ID safely
       const userJson = localStorage.getItem('user');
       if (!userJson) {
-        console.error('User data not found');
+        console.error('%c[Chat Store] User data not found', 'color: red');
         return;
       }
       
       const user = JSON.parse(userJson);
       if (!user || !user.id) {
-        console.error('Invalid user data');
+        console.error('%c[Chat Store] Invalid user data', 'color: red');
         return;
       }
       
@@ -291,7 +382,9 @@ export const useChatStore = create((set, get) => ({
         
         // Show notification for new message
         const sender = message.sender?.fullName || 'Someone';
-        const content = message.type === 'image' ? '📷 Image' : message.content;
+        const content = message.type === 'image' ? '📷 Image' : 
+                        message.type === 'video' ? '🎥 Video' :
+                        message.type === 'audio' ? '🎤 Voice message' : message.content;
         toast(`${sender}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`);
       }
 
@@ -313,7 +406,7 @@ export const useChatStore = create((set, get) => ({
         return { chats: sortedChats };
       });
     } catch (error) {
-      console.error('Error handling new message:', error);
+      console.error('%c[Chat Store] Error handling new message:', 'color: red', error);
     }
   },
 
@@ -351,7 +444,7 @@ export const useChatStore = create((set, get) => ({
         }
       }));
     } catch (error) {
-      console.error('Error marking messages as read:', error);
+      console.error('%c[Chat Store] Error marking messages as read:', 'color: red', error);
     }
   },
   
@@ -370,18 +463,18 @@ export const useChatStore = create((set, get) => ({
 // Initialize socket listeners
 export const initializeChatListeners = (userId) => {
   if (!userId) {
-    console.error('Cannot initialize chat listeners: No user ID provided');
+    console.error('%c[Chat Store] Cannot initialize chat listeners: No user ID provided', 'color: red');
     return;
   }
   
-  console.log('Initializing chat listeners for user:', userId);
+  console.log('%c[Chat Store] Initializing chat listeners for user:', 'color: blue', userId);
   
   // Connect to socket server
   socketService.connect();
   
   // Set up message listener
   socketService.onMessageReceived((message) => {
-    console.log('Message received:', message);
+    console.log('%c[Chat Store] Message received:', 'color: green', message);
     useChatStore.getState().handleNewMessage(message);
   });
 
@@ -396,19 +489,19 @@ export const initializeChatListeners = (userId) => {
   
   // Set up read receipt listener
   socketService.onMessagesRead(({ chatId }) => {
-    console.log('Messages read in chat:', chatId);
+    console.log('%c[Chat Store] Messages read in chat:', 'color: green', chatId);
     // Update read status of messages
     useChatStore.getState().fetchMessages(chatId);
   });
   
   // Set up user status listeners
   socketService.onUserOnline(({ userId }) => {
-    console.log('User online:', userId);
+    console.log('%c[Chat Store] User online:', 'color: green', userId);
     useChatStore.getState().updateUserStatus(userId, true, new Date());
   });
   
   socketService.onUserOffline(({ userId, lastSeen }) => {
-    console.log('User offline:', userId);
+    console.log('%c[Chat Store] User offline:', 'color: orange', userId);
     useChatStore.getState().updateUserStatus(userId, false, lastSeen);
   });
 };

@@ -1,22 +1,13 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MessageSquare, LogOut, Menu, X } from 'lucide-react';
 import { Toaster } from 'sonner';
+import Auth from './pages/Auth';
+import Chat from './pages/Chat';
+import PrivateRoute from './components/PrivateRoute';
 import { useAuthStore } from './store/authStore';
 import { initializeChatListeners } from './store/chatStore';
 import { socketService } from './services/socket';
-
-// Lazy load components
-const Auth = lazy(() => import('./pages/Auth'));
-const Chat = lazy(() => import('./pages/Chat'));
-const PrivateRoute = lazy(() => import('./components/PrivateRoute'));
-
-// Loading component
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-  </div>
-);
 
 function App() {
   const { user, isAuthenticated, checkAuth, logout, theme } = useAuthStore();
@@ -88,24 +79,22 @@ function App() {
           </div>
         </nav>
         
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
-            <Route path="/auth" element={
-              isAuthenticated ? <Navigate to="/" /> : <Auth />
-            } />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <div className="flex">
-                    <Chat isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-                  </div>
-                </PrivateRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Suspense>
+        <Routes>
+          <Route path="/auth" element={
+            isAuthenticated ? <Navigate to="/" /> : <Auth />
+          } />
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <div className="flex">
+                  <Chat isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+                </div>
+              </PrivateRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
         
         {/* Toast notifications */}
         <Toaster 

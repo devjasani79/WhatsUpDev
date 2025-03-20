@@ -4,7 +4,6 @@ import User from '../models/User.js';
 export const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    console.log("Received Token:", token); // Debugging
 
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -21,7 +20,7 @@ export const auth = async (req, res, next) => {
     req.token = token;
     next();
   } catch (error) {
-    console.error("Auth Middleware Error:", error.message);
-    res.status(401).json({ message: 'Authentication failed', error: error.message });
+    console.error("❌ [Auth] Middleware error:", error.message);
+    res.status(401).json({ message: 'Authentication failed' });
   }
 };
