@@ -6,6 +6,9 @@ export const validateSignup = [
     .isEmail()
     .withMessage('Please provide a valid email address')
     .normalizeEmail(),
+  body('phoneNumber')
+    .notEmpty()
+    .withMessage('Phone number is required'),
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
@@ -17,7 +20,7 @@ export const validateSignup = [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
-        message: 'Validation error', 
+        message: 'Validation error: ' + errors.array()[0].msg, 
         errors: errors.array() 
       });
     }
@@ -38,7 +41,7 @@ export const validateSignin = [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
-        message: 'Validation error', 
+        message: 'Validation error: ' + errors.array()[0].msg,
         errors: errors.array() 
       });
     }

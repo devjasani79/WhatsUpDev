@@ -14,22 +14,48 @@ const secretKey = process.env.JWT_SECRET || 'fallback_secret';
 // Sign up route
 router.post('/signup', validateSignup, async (req, res) => {
   try {
-    const { email, password, fullName } = req.body;
+    const { email, password, fullName, phoneNumber } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Check if user already exists by email
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      return res.status(400).json({ message: 'User with this email already exists' });
     }
+    
+    // Check if user already exists by phone number - temporarily removed
+    // const existingUserByPhone = await User.findOne({ phoneNumber });
+    // if (existingUserByPhone) {
+    //   return res.status(400).json({ message: 'User with this phone number already exists' });
+    // }
 
     // Create new user
     const user = new User({
       email,
+      phoneNumber,
       password,
       fullName
     });
 
-    await user.save();
+    try {
+      await user.save();
+    } catch (saveError) {
+      console.error('❌ [Auth] Error saving user:', saveError);
+      
+      // Check for MongoDB validation errors
+      if (saveError.name === 'ValidationError') {
+        // Extract the first validation error message
+        const errorField = Object.keys(saveError.errors)[0];
+        const errorMessage = saveError.errors[errorField].message;
+        return res.status(400).json({ message: `Validation error: ${errorMessage}` });
+      }
+      
+      // Check for MongoDB duplicate key error
+      if (saveError.code === 11000) {
+        return res.status(400).json({ message: 'Email is already in use. Please try another email.' });
+      }
+      
+      return res.status(400).json({ message: 'Registration failed. Please try again.' });
+    }
 
     const token = jwt.sign(
       { userId: user._id },
@@ -37,11 +63,11 @@ router.post('/signup', validateSignup, async (req, res) => {
       { expiresIn: "7d" }
     );
     
-
     res.status(201).json({
       user: {
         id: user._id,
         email: user.email,
+        phoneNumber: user.phoneNumber,
         fullName: user.fullName,
         avatarUrl: user.avatarUrl,
         status: user.status
@@ -49,8 +75,8 @@ router.post('/signup', validateSignup, async (req, res) => {
       token
     });
   } catch (error) {
-    res.status(500).json({ error: 'Server error during signup' });
-    console.error('❌ [Auth] Signup error:', error.message);
+    console.error('❌ [Auth] Signup error:', error);
+    res.status(500).json({ message: 'Server error. Please try again later.' });
   }
 });
 
@@ -81,6 +107,7 @@ router.post('/signin', validateSignin, async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
+        phoneNumber: user.phoneNumber,
         fullName: user.fullName,
         avatarUrl: user.avatarUrl,
         status: user.status

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { MessageSquare, Mail, Lock, User, ArrowRight, AlertCircle, Phone } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 function Auth() {
@@ -9,9 +9,10 @@ function Auth() {
     email: '',
     password: '',
     fullName: '',
+    phoneNumber: '',
   });
   const [formError, setFormError] = useState('');
-  const { login, register, loading, error, isAuthenticated } = useAuthStore();
+  const { login, register, loading, error, isAuthenticated, theme } = useAuthStore();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
@@ -53,6 +54,11 @@ function Auth() {
       return false;
     }
     
+    if (!isLogin && !formData.phoneNumber.trim()) {
+      setFormError('Phone number is required');
+      return false;
+    }
+    
     return true;
   };
 
@@ -75,6 +81,7 @@ function Auth() {
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName,
+          phoneNumber: formData.phoneNumber,
         });
       }
       
@@ -87,6 +94,14 @@ function Auth() {
     }
   };
 
+  // Get text color classes based on theme
+  const getTextColorClass = (baseColor) => {
+    return theme === 'dark' ? 'text-black' : baseColor;
+  };
+
+  // Input field class with dark mode text color support
+  const inputClass = `w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === 'dark' ? 'text-black' : ''}`;
+
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
@@ -96,10 +111,10 @@ function Auth() {
               <MessageSquare className="h-8 w-8 text-green-600" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className={`text-2xl font-bold ${getTextColorClass('text-gray-800')}`}>
             {isLogin ? 'Welcome back!' : 'Create an account'}
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className={`mt-2 ${getTextColorClass('text-gray-600')}`}>
             {isLogin
               ? 'Sign in to continue to WhatsupDev'
               : 'Join WhatsupDev and connect with developers'}
@@ -124,7 +139,22 @@ function Auth() {
                 value={formData.fullName}
                 onChange={handleChange}
                 required={!isLogin}
-                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={inputClass}
+              />
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="relative">
+              <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <input
+                type="tel"
+                name="phoneNumber"
+                placeholder="Phone Number"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                required={!isLogin}
+                className={inputClass}
               />
             </div>
           )}
@@ -138,7 +168,7 @@ function Auth() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className={inputClass}
             />
           </div>
 
@@ -151,7 +181,7 @@ function Auth() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className={inputClass}
             />
           </div>
 

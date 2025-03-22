@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { auth } from '../middleware/auth.js';
+import auth from '../middleware/auth.js';
 import Message from '../models/Message.js';
 import Chat from '../models/Chat.js';
 

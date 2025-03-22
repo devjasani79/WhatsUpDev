@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { MessageSquare, LogOut, Menu, X } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { MessageSquare, LogOut, Menu, X, Users } from 'lucide-react';
 import { Toaster } from 'sonner';
 import Auth from './pages/Auth';
 import Chat from './pages/Chat';
+import Contacts from './pages/Contacts';
 import PrivateRoute from './components/PrivateRoute';
 import { useAuthStore } from './store/authStore';
 import { initializeChatListeners } from './store/chatStore';
@@ -68,13 +69,31 @@ function App() {
             </div>
             
             {isAuthenticated && (
-              <button 
-                onClick={handleLogout}
-                className="flex items-center gap-2 bg-green-700 hover:bg-green-800 dark:bg-green-900 dark:hover:bg-green-950 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <span>Logout</span>
-                <LogOut className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                <Link 
+                  to="/"
+                  className="flex items-center gap-1 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <MessageSquare className="h-5 w-5" />
+                  <span className="hidden sm:inline">Chats</span>
+                </Link>
+                
+                <Link 
+                  to="/contacts"
+                  className="flex items-center gap-1 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Users className="h-5 w-5" />
+                  <span className="hidden sm:inline">Contacts</span>
+                </Link>
+                
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 bg-green-700 hover:bg-green-800 dark:bg-green-900 dark:hover:bg-green-950 px-3 py-1.5 rounded-lg transition-colors ml-2"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
             )}
           </div>
         </nav>
@@ -90,6 +109,14 @@ function App() {
                 <div className="flex">
                   <Chat isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
                 </div>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <PrivateRoute>
+                <Contacts />
               </PrivateRoute>
             }
           />

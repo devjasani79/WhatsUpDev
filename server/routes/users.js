@@ -1,5 +1,5 @@
 import express from 'express';
-import { auth } from '../middleware/auth.js';
+import auth from '../middleware/auth.js';
 import User from '../models/User.js';
 
 const router = express.Router();
@@ -16,7 +16,7 @@ router.get('/search', auth, async (req, res) => {
             { fullName: { $regex: query, $options: 'i' } }
           ]
         },
-        { _id: { $ne: req.user._id } }
+        { _id: { $ne: req.userId } }
       ]
     }).select('-password');
 
@@ -29,7 +29,7 @@ router.get('/search', auth, async (req, res) => {
 // Get user profile
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password');
+    const user = await User.findById(req.userId).select('-password');
     res.json({ user });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -40,7 +40,7 @@ router.get('/me', auth, async (req, res) => {
 router.patch('/me', auth, async (req, res) => {
   try {
     const updates = req.body;
-    const allowedUpdates = ['fullName', 'status', 'avatarUrl', 'email', 'theme', 'notifications'];
+    const allowedUpdates = ['fullName', 'status', 'profilePicture', 'email', 'theme', 'notifications'];
     
     // Filter out undefined values
     Object.keys(updates).forEach(key => 
@@ -59,13 +59,17 @@ router.patch('/me', auth, async (req, res) => {
       });
     }
 
-    Object.assign(req.user, updates);
+    // Apply updates to user object
+    Object.keys(updates).forEach(update => {
+      req.user[update] = updates[update];
+    });
+    
     await req.user.save();
 
     res.json({ user: req.user.getPublicProfile() });
   } catch (error) {
     console.error('Update error:', error);
-    res.status(500).json({ message: 'Server error || couldnt update' });
+    res.status(500).json({ message: 'Server error: ' + error.message });
   }
 });
 

@@ -130,7 +130,9 @@ export const useAuthStore = create(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.message || 'Registration failed');
+            // Extract a more specific error message if available
+            const errorMessage = data.message || data.error || 'Registration failed';
+            throw new Error(errorMessage);
           }
 
           // Ensure we have the expected data structure
