@@ -3,43 +3,8 @@
  * Centralized management of API endpoints and common HTTP request handling
  */
 
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://whatsupdev79.onrender.com/api';
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear token and redirect to login
-      localStorage.removeItem('token');
-      window.location.href = '/auth';
-    }
-    return Promise.reject(error);
-  }
-);
+// Base API URL - loads from environment variables in production
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://whatsupdev79.onrender.com/api';
 
 // API endpoints
 const ENDPOINTS = {
@@ -62,49 +27,97 @@ const ENDPOINTS = {
   },
 };
 
-export default api;
+// Helper for making authenticated requests
+const makeAuthRequest = async (endpoint, options = {}) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    throw new Error('Authentication token not found');
+  }
+
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    ...options.headers,
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `API request failed: ${response.status}`);
+  }
+
+  return response.json();
+};
 
 export const api = {
   // Auth endpoints
   auth: {
     login: (email, password) => 
-      api.post(ENDPOINTS.AUTH.SIGNIN, { email, password }),
+      makeAuthRequest(ENDPOINTS.AUTH.SIGNIN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }),
     
     register: (email, password, fullName) => 
-      api.post(ENDPOINTS.AUTH.SIGNUP, { email, password, fullName }),
+      makeAuthRequest(ENDPOINTS.AUTH.SIGNUP, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName }),
+      }),
   },
   
   // User endpoints
   users: {
-    getProfile: () => api.get(ENDPOINTS.USERS.ME),
+    getProfile: () => makeAuthRequest(ENDPOINTS.USERS.ME),
     
     updateProfile: (data) => 
-      api.put(ENDPOINTS.USERS.ME, data),
+      makeAuthRequest(ENDPOINTS.USERS.ME, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
     
     search: (query) => 
-      api.get(ENDPOINTS.USERS.SEARCH, { params: { query } }),
+      makeAuthRequest(`${ENDPOINTS.USERS.SEARCH}?query=${encodeURIComponent(query)}`),
   },
   
   // Chat endpoints
   chats: {
-    getAll: () => api.get(ENDPOINTS.CHATS.LIST),
+    getAll: () => makeAuthRequest(ENDPOINTS.CHATS.LIST),
     
     create: (participantId) => 
-      api.post(ENDPOINTS.CHATS.LIST, { participantId }),
+      makeAuthRequest(ENDPOINTS.CHATS.LIST, {
+        method: 'POST',
+        body: JSON.stringify({ participantId }),
+      }),
     
     createGroup: (name, participants) => 
-      api.post(ENDPOINTS.CHATS.GROUP, { name, participants }),
+      makeAuthRequest(ENDPOINTS.CHATS.GROUP, {
+        method: 'POST',
+        body: JSON.stringify({ name, participants }),
+      }),
     
     getMessages: (chatId) => 
-      api.get(ENDPOINTS.MESSAGES.GET(chatId)),
+      makeAuthRequest(ENDPOINTS.MESSAGES.GET(chatId)),
     
     sendMessage: (chatId, content, type = 'text') => 
-      api.post(ENDPOINTS.CHATS.MESSAGES(chatId), { content, type }),
+      makeAuthRequest(ENDPOINTS.CHATS.MESSAGES(chatId), {
+        method: 'POST',
+        body: JSON.stringify({ content, type }),
+      }),
   },
   
   // Message endpoints
   messages: {
     delete: (messageId) => 
-      api.delete(ENDPOINTS.MESSAGES.DELETE(messageId)),
+      makeAuthRequest(ENDPOINTS.MESSAGES.DELETE(messageId), {
+        method: 'DELETE',
+      }),
   },
 };
