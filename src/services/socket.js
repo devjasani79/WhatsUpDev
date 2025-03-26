@@ -9,6 +9,7 @@ class SocketService {
     this.socket = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.messageCallbacks = new Set();
   }
 
   connect(token) {
@@ -16,19 +17,12 @@ class SocketService {
       this.socket = io(SOCKET_URL, {
         auth: { token },
         transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 2000,
       });
 
-      this.socket.on('connect', () => {
-        console.log('Socket connected');
-      });
-
-      this.socket.on('disconnect', () => {
-        console.log('Socket disconnected');
-      });
-
-      this.socket.on('error', (error) => {
-        console.error('Socket error:', error);
-      });
+      this.setupEventListeners();
     }
     return this.socket;
   }
@@ -49,7 +43,6 @@ class SocketService {
     this.socket.on('disconnect', (reason) => {
       console.log('%c[Socket] Disconnected:', 'color: orange; font-weight: bold', reason);
       if (reason === 'io server disconnect') {
-        // Server disconnected us, try to reconnect
         this.connect();
       }
     });
@@ -58,6 +51,10 @@ class SocketService {
       console.error('%c[Socket] Authentication error', 'color: red; font-weight: bold');
       toast.error('Authentication failed');
       window.location.href = '/auth';
+    });
+
+    this.socket.on('message', (message) => {
+      this.messageCallbacks.forEach(callback => callback(message));
     });
   }
 
@@ -99,13 +96,14 @@ class SocketService {
   // Messaging methods
   sendMessage(roomId, message) {
     if (this.socket) {
-      this.socket.emit('send_message', { roomId, message });
+      this.socket.emit('message', { roomId, message });
     }
   }
 
-  onMessage(callback) {
-    if (this.socket) {
-      this.socket.on('receive_message', callback);
+  onMessageReceived(callback) {
+    if (typeof callback === 'function') {
+      this.messageCallbacks.add(callback);
+      return () => this.messageCallbacks.delete(callback);
     }
   }
 
@@ -117,43 +115,56 @@ class SocketService {
   }
 
   onTyping(callback) {
-    if (this.socket) {
+    if (this.socket && typeof callback === 'function') {
       this.socket.on('typing', callback);
+      return () => this.socket.off('typing', callback);
     }
   }
 
   // Message status methods
   markMessagesAsRead(chatId, userId) {
-    if (!this.socket) return;
-    this.socket.emit('read messages', { chatId, userId });
+    if (this.socket) {
+      this.socket.emit('mark_read', { chatId, userId });
+    }
   }
 
   onMessagesRead(callback) {
-    if (!this.socket) return;
-    this.socket.on('messages read', callback);
+    if (this.socket && typeof callback === 'function') {
+      this.socket.on('messages_read', callback);
+      return () => this.socket.off('messages_read', callback);
+    }
   }
 
   // Message unsend
   unsendMessage(messageId, chatId) {
-    if (!this.socket) return;
-    this.socket.emit('message unsend', { messageId, chatId });
+    if (this.socket) {
+      this.socket.emit('unsend_message', { messageId, chatId });
+    }
   }
 
   onMessageUnsent(callback) {
-    if (!this.socket) return;
-    this.socket.on('message unsent', callback);
+    if (this.socket && typeof callback === 'function') {
+      this.socket.on('message_unsent', callback);
+      return () => this.socket.off('message_unsent', callback);
+    }
   }
 
   // User status
   onUserOnline(callback) {
-    if (!this.socket) return;
-    this.socket.on('user online', callback);
+    if (this.socket && typeof callback === 'function') {
+      this.socket.on('user_online', callback);
+      return () => this.socket.off('user_online', callback);
+    }
   }
 
   onUserOffline(callback) {
-    if (!this.socket) return;
-    this.socket.on('user offline', callback);
+    if (this.socket && typeof callback === 'function') {
+      this.socket.on('user_offline', callback);
+      return () => this.socket.off('user_offline', callback);
+    }
   }
 }
 
-export const socketService = new SocketService();
+// Create and export a single instance
+const socketService = new SocketService();
+export default socketService;

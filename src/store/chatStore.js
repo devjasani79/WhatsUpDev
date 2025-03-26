@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { socketService } from '../services/socket';
+import api from '../services/api';
+import socketService from '../services/socket';
 import { toast } from 'sonner';
 
-export const useChatStore = create((set, get) => ({
+const useChatStore = create((set, get) => ({
   chats: [],
   selectedChat: null,
   messages: [],
@@ -24,326 +25,199 @@ export const useChatStore = create((set, get) => ({
     }));
   },
 
+  // Fetch all chats for the current user
   fetchChats: async () => {
     try {
-      set({ loading: true });
+      set({ loading: true, error: null });
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      const response = await fetch('https://whatsupdev79.onrender.com/api/chats', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (!token) throw new Error('Please authenticate');
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch chats');
-      }
-
-      const data = await response.json();
-      
-      // Sort chats by last message timestamp
-      const sortedChats = data.sort((a, b) => {
-        if (!a.lastMessage) return 1;
-        if (!b.lastMessage) return -1;
-        return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
+      const response = await api.get('/chats', {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      
-      set({ chats: sortedChats });
+      set({ chats: response.data, loading: false });
     } catch (error) {
-      console.error('%c[Chat Store] Error fetching chats:', 'color: red', error);
-      set({ error: error.message });
-      toast.error(error.message || 'Failed to fetch chats');
-    } finally {
-      set({ loading: false });
-    }
-  },
-
-  selectChat: async (chat) => {
-    try {
-      set({ selectedChat: chat, loading: true, error: null });
-
-      // Leave previous chat room if exists
-      if (get().selectedChat) {
-        socketService.leaveRoom(get().selectedChat._id);
-      }
-
-      // Join new chat room
-      socketService.joinRoom(chat._id);
-
-      // Fetch messages for the selected chat
-      const response = await fetch(`https://whatsupdev79.onrender.com/api/messages/${chat._id}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages');
-      }
-
-      const data = await response.json();
-      set({ messages: data.messages, loading: false });
-    } catch (error) {
-      console.error('%c[Chat Store] Error selecting chat:', 'color: red', error);
+      console.error('[Chat Store] Error fetching chats:', error);
       set({ error: error.message, loading: false });
-      toast.error('Failed to load chat messages');
     }
   },
 
+  // Select a chat
+  selectChat: (chat) => {
+    set({ selectedChat: chat });
+  },
+
+  // Fetch messages for a specific chat
   fetchMessages: async (chatId) => {
     try {
-      set({ loading: true });
+      set({ loading: true, error: null });
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      const response = await fetch(`https://whatsupdev79.onrender.com/api/chats/${chatId}/messages`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!token) throw new Error('Please authenticate');
+
+      const response = await api.get(`/messages/${chatId}`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch messages');
-      }
-
-      const data = await response.json();
-      
-      // Sort messages by timestamp (oldest first)
-      const sortedMessages = data.sort((a, b) => 
-        new Date(a.createdAt) - new Date(b.createdAt)
-      );
-      
-      set({ messages: sortedMessages });
+      set({ messages: response.data, loading: false });
     } catch (error) {
-      console.error('%c[Chat Store] Error fetching messages:', 'color: red', error);
-      set({ error: error.message });
-      toast.error(error.message || 'Failed to fetch messages');
-    } finally {
-      set({ loading: false });
+      console.error('[Chat Store] Error fetching messages:', error);
+      set({ error: error.message, loading: false });
     }
   },
 
-  sendMessage: async (chatId, content, type = 'text') => {
+  // Send a message
+  sendMessage: async (content, chatId) => {
     try {
+      set({ loading: true, error: null });
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      // For videos, handle them differently to avoid payload size issues
-      if (type === 'video') {
-        try {
-          // Parse the video data (it should be a stringified object for videos)
-          const videoData = JSON.parse(content);
-          
-          // Create a smaller payload for the server with just the thumbnail
-          const serverPayload = {
-            thumbnail: videoData.thumbnail,
-            name: videoData.name,
-            type: videoData.type,
-            size: videoData.size
-          };
-          
-          // Send the smaller payload to the server
-          const response = await fetch(`https://whatsupdev79.onrender.com/api/chats/${chatId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ 
-              content: JSON.stringify(serverPayload), 
-              type 
-            }),
-          });
+      if (!token) throw new Error('Please authenticate');
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || 'Failed to send message');
-          }
-
-          const serverMessage = await response.json();
-          
-          // Create a local message that includes the blob URL for local playback
-          const localMessage = {
-            ...serverMessage,
-            content: content, // Keep the original content with the URL for local playback
-            isLocalVideo: true
-          };
-          
-          // Add message to the local messages list
-          set(state => ({
-            messages: [...state.messages, localMessage],
-          }));
-
-          // Notify other clients about the message
-          socketService.sendMessage({
-            ...serverMessage,
-            chat: get().selectedChat,
-          });
-
-          // Update chat list
-          set(state => {
-            const updatedChats = state.chats.map(chat => 
-              chat._id === chatId 
-                ? { ...chat, lastMessage: serverMessage }
-                : chat
-            );
-            
-            // Sort chats
-            const sortedChats = updatedChats.sort((a, b) => {
-              if (!a.lastMessage) return 1;
-              if (!b.lastMessage) return -1;
-              return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
-            });
-            
-            return { chats: sortedChats };
-          });
-
-          return localMessage;
-        } catch (error) {
-          console.error('%c[Chat Store] Error handling video message:', 'color: red', error);
-          throw new Error('Failed to process video message');
-        }
-      }
-      
-      // For regular messages (text, image, audio)
-      const response = await fetch(`https://whatsupdev79.onrender.com/api/chats/${chatId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content, type }),
+      const response = await api.post('/messages', {
+        content,
+        chatId
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to send message');
-      }
-
-      const message = await response.json();
-      
-      // Add message to the end of the list (newest at bottom)
+      const newMessage = response.data;
       set(state => ({
-        messages: [...state.messages, message],
+        messages: [...state.messages, newMessage],
+        loading: false
       }));
 
-      // Send message via socket
-      const success = socketService.sendMessage({
-        ...message,
-        chat: get().selectedChat,
+      // Emit message through socket
+      socketService.sendMessage(chatId, newMessage);
+    } catch (error) {
+      console.error('[Chat Store] Error sending message:', error);
+      set({ error: error.message, loading: false });
+    }
+  },
+
+  // Create a new chat
+  createChat: async (userId) => {
+    try {
+      set({ loading: true, error: null });
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Please authenticate');
+
+      const response = await api.post('/chats', {
+        userId
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      // If socket failed, show a warning but continue
-      if (!success) {
-        toast.warning('Message sent but real-time updates may be delayed');
-      }
+      const newChat = response.data;
+      set(state => ({
+        chats: [newChat, ...state.chats],
+        selectedChat: newChat,
+        loading: false
+      }));
+    } catch (error) {
+      console.error('[Chat Store] Error creating chat:', error);
+      set({ error: error.message, loading: false });
+    }
+  },
 
-      // Update last message in chat list and reorder chats
+  // Create a group chat
+  createGroupChat: async (users, name) => {
+    try {
+      set({ loading: true, error: null });
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Please authenticate');
+
+      const response = await api.post('/chats/group', {
+        users,
+        name
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const newChat = response.data;
+      set(state => ({
+        chats: [newChat, ...state.chats],
+        selectedChat: newChat,
+        loading: false
+      }));
+    } catch (error) {
+      console.error('[Chat Store] Error creating group chat:', error);
+      set({ error: error.message, loading: false });
+    }
+  },
+
+  // Initialize chat listeners
+  initializeChatListeners: (userId) => {
+    console.log('[Chat Store] Initializing chat listeners for user:', userId);
+
+    // Handle new messages
+    const handleNewMessage = (message) => {
       set(state => {
-        const updatedChats = state.chats.map(chat => 
-          chat._id === chatId 
-            ? { ...chat, lastMessage: message }
-            : chat
-        );
-        
-        // Sort chats to bring the most recent to the top
-        const sortedChats = updatedChats.sort((a, b) => {
-          if (!a.lastMessage) return 1;
-          if (!b.lastMessage) return -1;
-          return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
+        const updatedChats = state.chats.map(chat => {
+          if (chat._id === message.chatId) {
+            return {
+              ...chat,
+              lastMessage: message,
+              updatedAt: new Date()
+            };
+          }
+          return chat;
         });
-        
-        return { chats: sortedChats };
-      });
 
-      return message;
-    } catch (error) {
-      console.error('%c[Chat Store] Error sending message:', 'color: red', error);
-      set({ error: error.message });
-      toast.error(error.message || 'Failed to send message');
-      throw error;
-    }
+        // Sort chats by last message time
+        updatedChats.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+        return {
+          chats: updatedChats,
+          messages: state.selectedChat?._id === message.chatId
+            ? [...state.messages, message]
+            : state.messages
+        };
+      });
+    };
+
+    // Handle message read status
+    const handleMessagesRead = ({ chatId, userId: readByUserId }) => {
+      set(state => ({
+        messages: state.messages.map(message => {
+          if (message.chatId === chatId && !message.readBy.includes(readByUserId)) {
+            return {
+              ...message,
+              readBy: [...message.readBy, readByUserId]
+            };
+          }
+          return message;
+        })
+      }));
+    };
+
+    // Handle message unsent
+    const handleMessageUnsent = ({ messageId, chatId }) => {
+      set(state => ({
+        messages: state.messages.filter(message => message._id !== messageId),
+        chats: state.chats.map(chat => {
+          if (chat._id === chatId) {
+            return {
+              ...chat,
+              lastMessage: chat.messages[chat.messages.length - 1] || null
+            };
+          }
+          return chat;
+        })
+      }));
+    };
+
+    // Set up socket listeners
+    socketService.onMessageReceived(handleNewMessage);
+    socketService.onMessagesRead(handleMessagesRead);
+    socketService.onMessageUnsent(handleMessageUnsent);
+
+    // Return cleanup function
+    return () => {
+      socketService.disconnect();
+    };
   },
 
-  createChat: async (participantId) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      const response = await fetch('https://whatsupdev79.onrender.com/api/chats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ participantId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create chat');
-      }
-
-      const chat = await response.json();
-      set(state => ({
-        chats: [chat, ...state.chats],
-        selectedChat: chat,
-      }));
-
-      return chat;
-    } catch (error) {
-      console.error('%c[Chat Store] Error creating chat:', 'color: red', error);
-      set({ error: error.message });
-      toast.error(error.message || 'Failed to create chat');
-      throw error;
-    }
-  },
-
-  createGroupChat: async (name, participantIds) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      const response = await fetch('https://whatsupdev79.onrender.com/api/chats/group', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, participants: participantIds }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create group chat');
-      }
-
-      const chat = await response.json();
-      set(state => ({
-        chats: [chat, ...state.chats],
-        selectedChat: chat,
-      }));
-
-      return chat;
-    } catch (error) {
-      console.error('%c[Chat Store] Error creating group chat:', 'color: red', error);
-      set({ error: error.message });
-      toast.error(error.message || 'Failed to create group chat');
-      throw error;
-    }
+  // Cleanup chat listeners
+  cleanupChatListeners: () => {
+    socketService.disconnect();
   },
 
   handleNewMessage: (message) => {
@@ -460,48 +334,4 @@ export const useChatStore = create((set, get) => ({
   }
 }));
 
-// Initialize socket listeners
-export const initializeChatListeners = (userId) => {
-  if (!userId) {
-    console.error('%c[Chat Store] Cannot initialize chat listeners: No user ID provided', 'color: red');
-    return;
-  }
-  
-  console.log('%c[Chat Store] Initializing chat listeners for user:', 'color: blue', userId);
-  
-  // Connect to socket server
-  socketService.connect();
-  
-  // Set up message listener
-  socketService.onMessageReceived((message) => {
-    console.log('%c[Chat Store] Message received:', 'color: green', message);
-    useChatStore.getState().handleNewMessage(message);
-  });
-
-  // Set up typing listeners
-  socketService.onTyping(({ chatId, userId }) => {
-    useChatStore.getState().setTypingStatus(chatId, userId, true);
-  });
-
-  socketService.onStopTyping(({ chatId, userId }) => {
-    useChatStore.getState().setTypingStatus(chatId, userId, false);
-  });
-  
-  // Set up read receipt listener
-  socketService.onMessagesRead(({ chatId }) => {
-    console.log('%c[Chat Store] Messages read in chat:', 'color: green', chatId);
-    // Update read status of messages
-    useChatStore.getState().fetchMessages(chatId);
-  });
-  
-  // Set up user status listeners
-  socketService.onUserOnline(({ userId }) => {
-    console.log('%c[Chat Store] User online:', 'color: green', userId);
-    useChatStore.getState().updateUserStatus(userId, true, new Date());
-  });
-  
-  socketService.onUserOffline(({ userId, lastSeen }) => {
-    console.log('%c[Chat Store] User offline:', 'color: orange', userId);
-    useChatStore.getState().updateUserStatus(userId, false, lastSeen);
-  });
-};
+export default useChatStore;
