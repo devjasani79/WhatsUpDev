@@ -11,6 +11,7 @@ const useChatStore = create((set, get) => ({
   error: null,
   typingUsers: new Map(),
   unreadCounts: {},
+  socketInitialized: false,
 
   // Add temporary message methods
   addTempMessage: (message) => {
@@ -39,6 +40,7 @@ const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error('[Chat Store] Error fetching chats:', error);
       set({ error: error.message, loading: false });
+      toast.error('Failed to fetch chats');
     }
   },
 
@@ -61,6 +63,7 @@ const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error('[Chat Store] Error fetching messages:', error);
       set({ error: error.message, loading: false });
+      toast.error('Failed to fetch messages');
     }
   },
 
@@ -85,10 +88,15 @@ const useChatStore = create((set, get) => ({
       }));
 
       // Emit message through socket
-      socketService.sendMessage(chatId, newMessage);
+      if (socketService.isConnected()) {
+        socketService.sendMessage(chatId, newMessage);
+      } else {
+        console.warn('[Chat Store] Socket not connected, message may not be delivered in real-time');
+      }
     } catch (error) {
       console.error('[Chat Store] Error sending message:', error);
       set({ error: error.message, loading: false });
+      toast.error('Failed to send message');
     }
   },
 
@@ -114,6 +122,7 @@ const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error('[Chat Store] Error creating chat:', error);
       set({ error: error.message, loading: false });
+      toast.error('Failed to create chat');
     }
   },
 
@@ -140,15 +149,22 @@ const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error('[Chat Store] Error creating group chat:', error);
       set({ error: error.message, loading: false });
+      toast.error('Failed to create group chat');
     }
   },
 
   // Initialize chat listeners
   initializeChatListeners: (userId) => {
+    if (!userId) {
+      console.error('[Chat Store] No user ID provided for chat listeners');
+      return () => {};
+    }
+
     console.log('[Chat Store] Initializing chat listeners for user:', userId);
 
     // Handle new messages
     const handleNewMessage = (message) => {
+      console.log('[Chat Store] Received new message:', message);
       set(state => {
         const updatedChats = state.chats.map(chat => {
           if (chat._id === message.chatId) {
@@ -175,6 +191,7 @@ const useChatStore = create((set, get) => ({
 
     // Handle message read status
     const handleMessagesRead = ({ chatId, userId: readByUserId }) => {
+      console.log('[Chat Store] Messages read:', { chatId, readByUserId });
       set(state => ({
         messages: state.messages.map(message => {
           if (message.chatId === chatId && !message.readBy.includes(readByUserId)) {
@@ -190,6 +207,7 @@ const useChatStore = create((set, get) => ({
 
     // Handle message unsent
     const handleMessageUnsent = ({ messageId, chatId }) => {
+      console.log('[Chat Store] Message unsent:', { messageId, chatId });
       set(state => ({
         messages: state.messages.filter(message => message._id !== messageId),
         chats: state.chats.map(chat => {
@@ -205,19 +223,27 @@ const useChatStore = create((set, get) => ({
     };
 
     // Set up socket listeners
-    socketService.onMessageReceived(handleNewMessage);
-    socketService.onMessagesRead(handleMessagesRead);
-    socketService.onMessageUnsent(handleMessageUnsent);
+    const cleanupMessage = socketService.onMessageReceived(handleNewMessage);
+    const cleanupRead = socketService.onMessagesRead(handleMessagesRead);
+    const cleanupUnsent = socketService.onMessageUnsent(handleMessageUnsent);
+
+    set({ socketInitialized: true });
 
     // Return cleanup function
     return () => {
-      socketService.disconnect();
+      console.log('[Chat Store] Cleaning up chat listeners');
+      cleanupMessage();
+      cleanupRead();
+      cleanupUnsent();
+      set({ socketInitialized: false });
     };
   },
 
   // Cleanup chat listeners
   cleanupChatListeners: () => {
+    console.log('[Chat Store] Cleaning up all chat listeners');
     socketService.disconnect();
+    set({ socketInitialized: false });
   },
 
   handleNewMessage: (message) => {
@@ -225,13 +251,13 @@ const useChatStore = create((set, get) => ({
       // Get user ID safely
       const userJson = localStorage.getItem('user');
       if (!userJson) {
-        console.error('%c[Chat Store] User data not found', 'color: red');
+        console.error('[Chat Store] User data not found');
         return;
       }
       
       const user = JSON.parse(userJson);
       if (!user || !user.id) {
-        console.error('%c[Chat Store] Invalid user data', 'color: red');
+        console.error('[Chat Store] Invalid user data');
         return;
       }
       
@@ -244,7 +270,9 @@ const useChatStore = create((set, get) => ({
         }));
         
         // Mark as read immediately if we're in the chat
-        socketService.markMessagesAsRead(message.chat._id, user.id);
+        if (socketService.isConnected()) {
+          socketService.markMessagesAsRead(message.chat._id, user.id);
+        }
       } else {
         // Increment unread count for this chat
         set(state => ({
@@ -253,34 +281,9 @@ const useChatStore = create((set, get) => ({
             [message.chat._id]: (state.unreadCounts[message.chat._id] || 0) + 1
           }
         }));
-        
-        // Show notification for new message
-        const sender = message.sender?.fullName || 'Someone';
-        const content = message.type === 'image' ? '📷 Image' : 
-                        message.type === 'video' ? '🎥 Video' :
-                        message.type === 'audio' ? '🎤 Voice message' : message.content;
-        toast(`${sender}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`);
       }
-
-      // Update last message in chat list and reorder chats
-      set(state => {
-        const updatedChats = state.chats.map(chat => 
-          chat._id === message.chat._id 
-            ? { ...chat, lastMessage: message }
-            : chat
-        );
-        
-        // Sort chats to bring the most recent to the top
-        const sortedChats = updatedChats.sort((a, b) => {
-          if (!a.lastMessage) return 1;
-          if (!b.lastMessage) return -1;
-          return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
-        });
-        
-        return { chats: sortedChats };
-      });
     } catch (error) {
-      console.error('%c[Chat Store] Error handling new message:', 'color: red', error);
+      console.error('[Chat Store] Error handling new message:', error);
     }
   },
 

@@ -13,8 +13,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   const { user, isAuthenticated, checkAuth, logout, theme } = useAuthStore();
-  const { initializeChatListeners, cleanupChatListeners } = useChatStore();
+  const { initializeChatListeners, cleanupChatListeners, socketInitialized } = useChatStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [socketError, setSocketError] = useState(null);
 
   // Check authentication status on app load
   useEffect(() => {
@@ -23,24 +24,40 @@ function App() {
 
   // Initialize socket connection when user is authenticated
   useEffect(() => {
-    if (user && isAuthenticated) {
+    let cleanup = () => {};
+
+    if (user && isAuthenticated && !socketInitialized) {
       try {
+        console.log('[App] Initializing socket connection...');
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
         // Connect socket with token
-        socketService.connect(user.token);
-        
+        const socket = socketService.connect(token);
+        if (!socket) {
+          throw new Error('Failed to initialize socket connection');
+        }
+
         // Initialize chat listeners
-        const cleanup = initializeChatListeners(user.id);
+        cleanup = initializeChatListeners(user.id);
         
-        // Cleanup function
-        return () => {
-          cleanup();
-          socketService.disconnect();
-        };
+        console.log('[App] Socket connection initialized successfully');
       } catch (error) {
-        console.error('Error initializing chat:', error);
+        console.error('[App] Error initializing socket:', error);
+        setSocketError(error.message);
+        toast.error('Failed to connect to chat server');
       }
     }
-  }, [user, isAuthenticated, initializeChatListeners]);
+
+    // Cleanup function
+    return () => {
+      console.log('[App] Cleaning up socket connection...');
+      cleanup();
+      cleanupChatListeners();
+    };
+  }, [user, isAuthenticated, socketInitialized, initializeChatListeners, cleanupChatListeners]);
 
   // Apply dark mode
   useEffect(() => {
@@ -52,7 +69,8 @@ function App() {
   }, [theme]);
 
   const handleLogout = () => {
-    socketService.disconnect();
+    console.log('[App] Logging out...');
+    cleanupChatListeners();
     logout();
   };
 
@@ -108,6 +126,13 @@ function App() {
               )}
             </div>
           </nav>
+          
+          {socketError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Connection Error!</strong>
+              <span className="block sm:inline"> {socketError}</span>
+            </div>
+          )}
           
           <Routes>
             <Route path="/auth" element={
