@@ -109,6 +109,11 @@ JWT_EXPIRES_IN=7d
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 CLIENT_URL=https://whats-up-dev.vercel.app
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_email_username
+EMAIL_PASS=your_email_password_or_app_password
+FROM_EMAIL="WhatsUpDev" <no-reply@whatsupdev.app>
 ```
 
 ## Deployment

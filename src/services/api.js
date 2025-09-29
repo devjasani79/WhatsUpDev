@@ -11,6 +11,8 @@ const ENDPOINTS = {
   AUTH: {
     SIGNIN: '/auth/signin',
     SIGNUP: '/auth/signup',
+    REQUEST_RESET: '/auth/request-reset',
+    VERIFY_OTP: '/auth/verify-otp',
   },
   USERS: {
     ME: '/users/me',
@@ -25,6 +27,27 @@ const ENDPOINTS = {
     GET: (chatId) => `/messages/${chatId}`,
     DELETE: (messageId) => `/messages/${messageId}`,
   },
+};
+
+// Helper for making unauthenticated requests
+const makeRequest = async (endpoint, options = {}) => {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `API request failed: ${response.status}`);
+  }
+
+  return response.json();
 };
 
 // Helper for making authenticated requests
@@ -58,15 +81,27 @@ const makeAuthRequest = async (endpoint, options = {}) => {
 export const api = {
   // Auth endpoints
   auth: {
+    requestPasswordReset: (email) =>
+      makeRequest(ENDPOINTS.AUTH.REQUEST_RESET, {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+
+    verifyOtpAndReset: (email, otp, newPassword) =>
+      makeRequest(ENDPOINTS.AUTH.VERIFY_OTP, {
+        method: 'POST',
+        body: JSON.stringify({ email, otp, newPassword }),
+      }),
+
     login: (email, password) => 
-      makeAuthRequest(ENDPOINTS.AUTH.SIGNIN, {
+      makeRequest(ENDPOINTS.AUTH.SIGNIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       }),
     
     register: (email, password, fullName) => 
-      makeAuthRequest(ENDPOINTS.AUTH.SIGNUP, {
+      makeRequest(ENDPOINTS.AUTH.SIGNUP, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, fullName }),

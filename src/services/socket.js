@@ -12,9 +12,10 @@ class SocketService {
   }
 
   connect(token) {
+    const authToken = token || typeof window !== 'undefined' ? localStorage.getItem('token') : undefined;
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
-        auth: { token },
+        auth: { token: authToken },
         transports: ['websocket'],
       });
 
@@ -83,43 +84,49 @@ class SocketService {
     return this.socket?.connected || false;
   }
 
-  // Chat room methods
-  joinRoom(roomId) {
+  // Chat room methods (align with server events)
+  joinRoom(chatId) {
     if (this.socket) {
-      this.socket.emit('join_room', roomId);
+      this.socket.emit('join chat', chatId);
     }
   }
 
-  leaveRoom(roomId) {
+  leaveRoom(chatId) {
     if (this.socket) {
-      this.socket.emit('leave_room', roomId);
+      this.socket.emit('leave chat', chatId);
     }
   }
 
-  // Messaging methods
-  sendMessage(roomId, message) {
-    if (this.socket) {
-      this.socket.emit('send_message', { roomId, message });
-    }
+  // Messaging methods (align with server events and store expectations)
+  sendMessage(message) {
+    if (!this.socket) return false;
+    this.socket.emit('new message', message);
+    return true;
   }
 
-  onMessage(callback) {
-    if (this.socket) {
-      this.socket.on('receive_message', callback);
-    }
+  onMessageReceived(callback) {
+    if (!this.socket) return;
+    this.socket.on('message received', callback);
   }
 
-  // Typing indicators
-  emitTyping(roomId, isTyping) {
-    if (this.socket) {
-      this.socket.emit('typing', { roomId, isTyping });
+  // Typing indicators (server uses 'typing' and 'stop typing')
+  emitTyping(chatId, userId, isTyping) {
+    if (!this.socket) return;
+    if (isTyping) {
+      this.socket.emit('typing', { chatId, userId });
+    } else {
+      this.socket.emit('stop typing', { chatId, userId });
     }
   }
 
   onTyping(callback) {
-    if (this.socket) {
-      this.socket.on('typing', callback);
-    }
+    if (!this.socket) return;
+    this.socket.on('typing', callback);
+  }
+
+  onStopTyping(callback) {
+    if (!this.socket) return;
+    this.socket.on('stop typing', callback);
   }
 
   // Message status methods

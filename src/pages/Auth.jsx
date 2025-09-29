@@ -214,6 +214,17 @@ function Auth() {
               : 'Already have an account? Sign In'}
           </button>
         </div>
+
+        {isLogin && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => navigate('/forgot-password')}
+              className="text-sm text-gray-600 hover:text-gray-800 underline"
+            >
+              Forgot your password?
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-ro
 import { MessageSquare, LogOut, Menu, X, Users } from 'lucide-react';
 import { Toaster } from 'sonner';
 import Auth from './pages/Auth';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Chat from './pages/Chat';
 import Contacts from './pages/Contacts';
 import PrivateRoute from './components/PrivateRoute';
@@ -101,6 +103,12 @@ function App() {
         <Routes>
           <Route path="/auth" element={
             isAuthenticated ? <Navigate to="/" /> : <Auth />
+          } />
+          <Route path="/forgot-password" element={
+            isAuthenticated ? <Navigate to="/" /> : <ForgotPassword />
+          } />
+          <Route path="/reset-password" element={
+            isAuthenticated ? <Navigate to="/" /> : <ResetPassword />
           } />
           <Route
             path="/"
