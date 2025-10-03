@@ -1,8 +1,34 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
 import User from '../models/User.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
+
+// Avatar upload storage
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(path.dirname(path.dirname(__dirname)), 'uploads', 'avatars');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, unique + path.extname(file.originalname));
+  }
+});
+
+const avatarFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (allowed.includes(file.mimetype)) return cb(null, true);
+  cb(new Error('Invalid avatar file type'));
+};
+
+const uploadAvatar = multer({ storage: avatarStorage, fileFilter: avatarFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Search users
 router.get('/search', auth, async (req, res) => {
@@ -70,6 +96,23 @@ router.patch('/me', auth, async (req, res) => {
   } catch (error) {
     console.error('Update error:', error);
     res.status(500).json({ message: 'Server error: ' + error.message });
+  }
+});
+
+// Upload avatar and persist on user
+router.post('/me/avatar', auth, uploadAvatar.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No avatar uploaded' });
+    }
+
+    const publicUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+    req.user.profilePicture = publicUrl;
+    await req.user.save();
+    res.json({ user: req.user.getPublicProfile(), avatarUrl: publicUrl });
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

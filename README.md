@@ -114,7 +114,16 @@ EMAIL_PORT=587
 EMAIL_USER=your_email_username
 EMAIL_PASS=your_email_password_or_app_password
 FROM_EMAIL="WhatsUpDev" <no-reply@whatsupdev.app>
+# Alternatively, a single SMTP URL (overrides the above):
+SMTP_URL=smtp://user:pass@smtp.example.com:587
 ```
+
+## Recent Changes
+
+- Password reset emails: SMTP configuration hardened; supports `SMTP_URL`. Fallback logs OTP only if email is not configured.
+- Profile pictures: Added persistent avatar upload endpoint `POST /api/users/me/avatar`; client now uploads and stores server URL.
+- Chat UI: Single media attachment button; audio recording is single-click start/stop; improved mobile bubble sizing for media.
+- FIXMEs: See `FIXMEs.md` for follow-ups and production hardening items.
 
 ## Deployment
 

@@ -35,6 +35,7 @@ function Contacts() {
   });
   const [filterOption, setFilterOption] = useState('all'); // 'all', 'registered', 'unregistered'
   const fileInputRef = useRef(null);
+  // Google import removed
 
   // Fetch contacts on component mount
   useEffect(() => {
@@ -196,6 +197,8 @@ function Contacts() {
     toast.success(`Privacy setting updated: ${setting}`);
   };
 
+  // Google import removed
+
   // Filter contacts based on selected option and search query
   const filteredContacts = contacts.filter(contact => {
     // First apply filter option
@@ -263,6 +266,7 @@ function Contacts() {
               ref={fileInputRef}
             />
           </label>
+          {/* Google import removed */}
           <button
             onClick={() => setShowAddContact(true)}
             className="flex items-center bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -272,6 +276,7 @@ function Contacts() {
           </button>
         </div>
       </div>
+{/* Google login removed */}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-600">
@@ -570,6 +575,8 @@ function Contacts() {
           </div>
         </div>
       )}
+
+      {/* Google preview modal removed */}
     </div>
   );
 }

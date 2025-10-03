@@ -126,16 +126,18 @@ export default router;
 
 // ---------------- Password Reset ----------------
 
-// Email transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// Email transporter (supports SMTP_URL or host/user/pass)
+const transporter = process.env.SMTP_URL
+  ? nodemailer.createTransport(process.env.SMTP_URL)
+  : nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
 const sendOtpEmail = async (to, otp) => {
   const html = `
@@ -174,9 +176,14 @@ router.post('/request-reset', async (req, res) => {
     await PasswordReset.deleteMany({ email });
     await PasswordReset.create({ email, otp, expiresAt });
 
-    const hasEmailConfig = Boolean(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
+    const hasEmailConfig = Boolean(
+      process.env.SMTP_URL ||
+      ((process.env.EMAIL_HOST || process.env.EMAIL_SERVICE) && process.env.EMAIL_USER && process.env.EMAIL_PASS)
+    );
     if (!hasEmailConfig) {
-      console.warn(`[PasswordReset] Email not configured. Fallback OTP for ${email}: ${otp}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[PasswordReset] Email not configured. Fallback OTP for ${email}: ${otp}`);
+      }
       return res.status(200).json({ success: true, msg: 'OTP generated. Check server logs.' });
     }
 
@@ -184,8 +191,10 @@ router.post('/request-reset', async (req, res) => {
       await sendOtpEmail(email, otp);
       return res.status(200).json({ success: true, msg: 'OTP sent to email' });
     } catch (emailErr) {
-      console.error('Email send error:', emailErr);
-      console.warn(`[PasswordReset] Using fallback. OTP for ${email}: ${otp}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Email send error:', emailErr);
+        console.warn(`[PasswordReset] Using fallback. OTP for ${email}: ${otp}`);
+      }
       return res.status(200).json({ success: true, msg: 'OTP generated. Check server logs.' });
     }
   } catch (err) {

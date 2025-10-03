@@ -12,6 +12,21 @@ const CONFIG = {
  */
 const ContactAPI = {
   /**
+   * Preview Google People contacts via backend using a Google access token
+   * @param {string} googleAccessToken - OAuth access token from Google
+   * @param {string} token - App JWT
+   * @returns {Promise<{contacts: Array, total: number}>}
+   */
+  previewGoogleContacts: async (googleAccessToken, token) => {
+    return makeApiCall({
+      endpoint: 'contacts/google-import/preview',
+      method: 'POST',
+      token,
+      data: { googleAccessToken },
+      errorMessage: 'Failed to fetch Google contacts'
+    });
+  },
+  /**
    * Import contacts to the server
    * @param {Array} contacts - Array of contact objects with name and phoneNumber
    * @param {string} token - Authentication token
@@ -360,6 +375,57 @@ const makeApiCall = async ({ endpoint, method = 'GET', token, data = null, error
   }
 };
 
+/**
+ * Load Google Identity Services script if not present
+ * @returns {Promise<void>}
+ */
+const loadGoogleIdentityScript = () => {
+  return new Promise((resolve, reject) => {
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) return resolve();
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+};
+
+/**
+ * Get a Google access token with contacts.readonly scope
+ * @param {string} clientId - Google OAuth Client ID (VITE_GOOGLE_CLIENT_ID)
+ * @returns {Promise<string>} - Access token
+ */
+const getGoogleAccessToken = async (clientId) => {
+  await loadGoogleIdentityScript();
+  return new Promise((resolve, reject) => {
+    try {
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/contacts.readonly',
+        prompt: '',
+        callback: (response) => {
+          if (response && response.access_token) {
+            resolve(response.access_token);
+          } else {
+            reject(new Error('Failed to obtain Google access token'));
+          }
+        }
+      });
+      tokenClient.requestAccessToken();
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
 // ========== MOBILE SPECIFIC FUNCTIONS ==========
 /**
  * Import contacts from device (for mobile apps)
@@ -379,6 +445,8 @@ export const deleteContact = ContactAPI.deleteContact;
 export const addContact = ContactAPI.addContact;
 export const syncContacts = ContactAPI.syncContacts;
 export const parseContactsFile = FileParser.parseContactsFile;
+export const previewGoogleContacts = ContactAPI.previewGoogleContacts;
+export const getGoogleAccessTokenWithContactsScope = getGoogleAccessToken;
 export { importContactsFromDevice };
 
 // Export modules for more advanced usage

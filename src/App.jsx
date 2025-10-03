@@ -12,7 +12,10 @@ import { useAuthStore } from './store/authStore';
 import { initializeChatListeners } from './store/chatStore';
 import { socketService } from './services/socket';
 
+
 function App() {
+  
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const { user, isAuthenticated, checkAuth, logout, theme } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -71,7 +74,7 @@ function App() {
             </div>
             
             {isAuthenticated && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 sm:gap-3">
                 <Link 
                   to="/"
                   className="flex items-center gap-1 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors"
@@ -90,7 +93,7 @@ function App() {
                 
                 <button 
                   onClick={handleLogout}
-                  className="flex items-center gap-1 bg-green-700 hover:bg-green-800 dark:bg-green-900 dark:hover:bg-green-950 px-3 py-1.5 rounded-lg transition-colors ml-2"
+                  className="flex items-center gap-1 bg-green-700 hover:bg-green-800 dark:bg-green-900 dark:hover:bg-green-950 px-2 sm:px-3 py-1.5 rounded-lg transition-colors ml-1 sm:ml-2"
                 >
                   <LogOut className="h-5 w-5" />
                   <span className="hidden sm:inline">Logout</span>

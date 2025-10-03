@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Users, Pin, BellOff, Trash2, X, Check } from 'lucide-react';
+import { Search, UserPlus, Users, Pin, BellOff, Trash2, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { useChatStore } from '../store/chatStore';
@@ -157,9 +157,9 @@ function ChatList() {
                   ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
               }`}
-              title="Search users"
+              title="Find or start chat"
             >
-              <Search className="h-5 w-5" />
+              <UserPlus className="h-5 w-5" />
             </button>
             <button
               onClick={() => {

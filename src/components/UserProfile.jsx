@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Camera, Edit, LogOut, Moon, Bell, X, Check, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useUserStore } from '../store/userStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -16,6 +17,7 @@ function UserProfile() {
     profilePicture: '',
   });
   const fileInputRef = useRef(null);
+  const { uploadAvatar } = useUserStore();
 
   // Update profile data when user changes
   useEffect(() => {
@@ -37,26 +39,23 @@ function UserProfile() {
     setProfileError('');
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setProfileError('Image size should be less than 5MB');
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileData({
-          ...profileData,
-          profilePicture: reader.result,
-        });
-        setProfileError('');
-      };
-      reader.onerror = () => {
-        setProfileError('Failed to read image file');
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileError('Image size should be less than 5MB');
+      return;
+    }
+    try {
+      const updatedUser = await uploadAvatar(file);
+      setProfileData({
+        ...profileData,
+        profilePicture: updatedUser.profilePicture || updatedUser.avatarUrl || profileData.profilePicture,
+      });
+      toast.success('Profile picture updated');
+      setProfileError('');
+    } catch (err) {
+      setProfileError(err.message || 'Failed to upload avatar');
     }
   };
 
@@ -206,10 +205,10 @@ function UserProfile() {
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
-              className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"
+              className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md p-6"
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Edit Profile</h2>
+                <h2 className="text-xl font-bold dark:text-white">Edit Profile</h2>
                 <button
                   onClick={() => {
                     setIsEditing(false);
@@ -222,7 +221,7 @@ function UserProfile() {
               </div>
 
               {profileError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-600">
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-600 dark:text-red-300">
                   <AlertCircle className="h-5 w-5" />
                   <p>{profileError}</p>
                 </div>
@@ -260,7 +259,7 @@ function UserProfile() {
                 </div>
 
           <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Full Name
                   </label>
                   <input
@@ -268,13 +267,13 @@ function UserProfile() {
                     name="fullName"
                     value={profileData.fullName}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Status
                   </label>
                   <input
@@ -284,15 +283,15 @@ function UserProfile() {
                     onChange={handleChange}
                     placeholder="What's on your mind?"
                     maxLength={50}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {50 - (profileData.status?.length || 0)} characters remaining
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Email
                   </label>
                   <input
@@ -300,7 +299,7 @@ function UserProfile() {
                     name="email"
                     value={profileData.email}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                     required
                   />
                 </div>
@@ -312,7 +311,7 @@ function UserProfile() {
                       setIsEditing(false);
                       setProfileError('');
                     }}
-                    className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700 dark:text-white"
                     >
                       Cancel
                     </button>

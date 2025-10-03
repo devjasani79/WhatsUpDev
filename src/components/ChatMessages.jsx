@@ -15,7 +15,7 @@ function ChatMessages() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [attachmentType, setAttachmentType] = useState(null);
+  const [attachmentType, setAttachmentType] = useState('any');
   const [showMessageActions, setShowMessageActions] = useState(null);
   const [autoDeleteTime, setAutoDeleteTime] = useState(null);
   const messagesContainerRef = useRef(null);
@@ -227,16 +227,11 @@ function ChatMessages() {
   };
 
   const handleRecordingTap = () => {
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTapTime;
-    
-    if (tapLength < 300 && isRecording) { // Double tap detected while recording
+    if (isRecording) {
       stopRecording();
-    } else if (!isRecording) { // Start recording on first tap
+    } else {
       startRecording();
     }
-    
-    setLastTapTime(currentTime);
   };
 
   const startRecording = async () => {
@@ -368,14 +363,14 @@ function ChatMessages() {
     switch (message.type) {
       case 'image':
         return (
-          <div className="relative group">
+          <div className="relative group media-container ratio-4-3">
             <div className="absolute top-2 left-2 w-5 h-5 text-white z-10">
               <Image className="w-full h-full" />
             </div>
             <img 
               src={message.content} 
               alt="Shared image" 
-              className="max-w-sm rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              className="rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
               loading="lazy"
               onClick={() => window.open(message.content, '_blank')}
             />
@@ -447,7 +442,7 @@ function ChatMessages() {
                   src={videoData.url || message.content} 
                   controls
                   preload="metadata"
-                  className="max-w-sm rounded-lg shadow-md"
+                  className="media-container ratio-4-3 rounded-lg shadow-md"
                   playsInline
                 >
                   Your browser does not support the video tag.
@@ -732,7 +727,7 @@ function ChatMessages() {
             <div className="absolute bottom-2 right-2 flex items-center gap-2">
               <button
                 onClick={() => {
-                  setAttachmentType('image');
+                  setAttachmentType('any');
                   fileInputRef.current?.click();
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
@@ -740,24 +735,10 @@ function ChatMessages() {
                     ? 'hover:bg-gray-600 text-gray-300' 
                     : 'hover:bg-gray-200 text-gray-500'
                 }`}
-                title="Send image"
+                title="Send media"
               >
                 <Image className="h-5 w-5" />
               </button>
-          <button
-                onClick={() => {
-                  setAttachmentType('video');
-                  fileInputRef.current?.click();
-                }}
-                className={`p-1.5 rounded-full transition-colors ${
-                  theme === 'dark' 
-                    ? 'hover:bg-gray-600 text-gray-300' 
-                    : 'hover:bg-gray-200 text-gray-500'
-                }`}
-                title="Send video"
-              >
-                <Video className="h-5 w-5" />
-          </button>
             </div>
           </div>
 
@@ -765,11 +746,7 @@ function ChatMessages() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
-            accept={
-              attachmentType === 'image' ? 'image/*' :
-              attachmentType === 'video' ? 'video/*' :
-              attachmentType === 'audio' ? 'audio/webm,audio/mp3' : ''
-            }
+            accept={attachmentType === 'any' ? 'image/*,video/*,audio/*' : ''}
             className="hidden"
           />
 

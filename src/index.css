@@ -43,6 +43,7 @@ body {
 .message-bubble.own {
   @apply bg-green-500 text-white rounded-br-none;
   margin-left: auto;
+  max-width: 85vw;
 }
 
 .message-bubble.other {
@@ -135,6 +136,35 @@ body {
 /* Dark mode overrides */
 .dark .message-bubble.own {
   @apply bg-green-600;
+}
+
+/* Ensure media inside bubbles scale properly on mobile */
+.message-bubble img,
+.message-bubble video,
+.message-bubble audio {
+  max-width: 80vw;
+  height: auto;
+}
+
+/* Fixed aspect ratio for media in chat bubbles */
+.message-bubble .media-container {
+  position: relative;
+  width: 100%;
+  max-width: 80vw;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.message-bubble .media-container.ratio-4-3 {
+  aspect-ratio: 4 / 3;
+}
+.message-bubble .media-container.ratio-1-1 {
+  aspect-ratio: 1 / 1;
+}
+.message-bubble .media-container img,
+.message-bubble .media-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .dark .message-bubble.other {

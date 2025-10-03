@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 
@@ -112,6 +113,106 @@ router.post('/import', auth, async (req, res) => {
   } catch (error) {
     console.error('Contact import error:', error);
     res.status(500).json({ message: 'Server error during contact import' });
+  }
+});
+
+// Google People API preview - fetch contacts using client-provided Google access token
+// router.post('/google-import/preview', auth, async (req, res) => {
+//   try {
+//     const { googleAccessToken } = req.body;
+
+//     if (!googleAccessToken) {
+//       return res.status(400).json({ message: 'googleAccessToken is required' });
+//     }
+
+//     const peopleApiUrl = 'https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers&pageSize=1000';
+//     const response = await fetch(peopleApiUrl, {
+//       headers: {
+//         Authorization: `Bearer ${googleAccessToken}`
+//       }
+//     });
+
+//     if (!response.ok) {
+//       const text = await response.text();
+//       return res.status(400).json({ message: 'Failed to fetch Google contacts', details: text });
+//     }
+
+//     const data = await response.json();
+//     const connections = Array.isArray(data.connections) ? data.connections : [];
+
+//     // Map to unified shape used by importer
+//     const mapped = connections.map(person => {
+//       const name = person.names && person.names.length > 0 ? (person.names[0].displayName || person.names[0].givenName || '') : '';
+//       let phoneRaw = '';
+//       if (person.phoneNumbers && person.phoneNumbers.length > 0) {
+//         const p = person.phoneNumbers[0];
+//         phoneRaw = p.canonicalForm || p.value || '';
+//       }
+//       const email = person.emailAddresses && person.emailAddresses.length > 0 ? (person.emailAddresses[0].value || '') : '';
+
+//       const normalizedPhoneNumber = normalizePhoneNumber(phoneRaw);
+//       return {
+//         name,
+//         phoneNumber: normalizedPhoneNumber,
+//         email: email || null
+//       };
+//     }).filter(c => c.name && c.phoneNumber);
+
+//     // Deduplicate by phone/email
+//     const seen = new Set();
+//     const deduped = [];
+//     for (const c of mapped) {
+//       const key = `${c.phoneNumber}:${(c.email || '').toLowerCase()}`;
+//       if (!seen.has(key)) {
+//         seen.add(key);
+//         deduped.push(c);
+//       }
+//     }
+
+//     res.status(200).json({ contacts: deduped, total: deduped.length });
+//   } catch (error) {
+//     console.error('Google People preview error:', error);
+//     res.status(500).json({ message: 'Server error during Google People fetch' });
+//   }
+// });
+// Google People API preview - fetch contacts using client-provided Google access token
+router.post('/google-import/preview', auth, async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    
+    if (!accessToken) {
+      return res.status(400).json({ message: 'Access token is required' });
+    }
+
+    // Fetch contacts from Google People API
+    const response = await fetch(
+      'https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers&pageSize=1000',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Google API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const contacts = data.connections || [];
+
+    // Transform Google contacts into our format
+    const formattedContacts = contacts.map(contact => ({
+      name: contact.names?.[0]?.displayName || 'Unnamed Contact',
+      email: contact.emailAddresses?.[0]?.value || '',
+      phoneNumber: contact.phoneNumbers?.[0]?.value || '',
+      source: 'google'
+    }));
+
+    res.json({ contacts: formattedContacts });
+  } catch (error) {
+    console.error('Google contacts preview error:', error);
+    res.status(500).json({ message: 'Failed to fetch Google contacts' });
   }
 });
 
