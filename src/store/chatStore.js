@@ -75,7 +75,7 @@ export const useChatStore = create((set, get) => ({
       socketService.joinRoom(chat._id);
 
       // Fetch messages for the selected chat
-      const response = await fetch(`https://whatsupdev79.onrender.com/api/messages/${chat._id}`, {
+      const response = await fetch(`https://whatsupdev79.onrender.com/api/chats/${chat._id}/messages`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
