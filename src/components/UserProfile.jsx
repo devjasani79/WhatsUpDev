@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Camera, Edit, LogOut, Moon, Bell, X, Check, AlertCircle } from 'lucide-react';
+ import { User, Camera, Edit, LogOut, Moon, Bell, X, Check, AlertCircle, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useUserStore } from '../store/userStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -187,7 +187,7 @@ function UserProfile() {
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
             title="Settings"
           >
-            <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+           <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
       </div>
