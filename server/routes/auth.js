@@ -212,7 +212,8 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     const record = await PasswordReset.findOne({ email });
-    if (!record || record.otp !== otp || record.expiresAt < new Date()) {
+ if (!record || record.otp !== String(otp) || record.expiresAt < new Date()) {
+
       return res.status(400).json({ success: false, msg: 'Invalid or expired OTP' });
     }
 
