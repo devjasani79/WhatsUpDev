@@ -14,57 +14,105 @@ import contactRoutes from './routes/contacts.js';
 import { socketHandler } from './socket.js';
 import { connectDatabase } from './config/database.js';
 
-// Load environment variables
+// Load env
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.CLIENT_URL || "https://whats-up-dev.vercel.app",
-    methods: ["GET", "POST"]
-  }
-});
 
-// Get directory name in ES module
+// Resolve __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors());
+/* -------------------------------------------------------------------------- */
+/*                                   CORS                                     */
+/* -------------------------------------------------------------------------- */
 
-// Increase JSON body size limit to 10MB for importing larger contact files
+const allowedOrigins = [
+  'https://whats-up-dev.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow server-to-server / Postman / curl
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
+
+// VERY IMPORTANT: handle preflight
+app.options('*', cors());
+
+/* -------------------------------------------------------------------------- */
+/*                                MIDDLEWARE                                  */
+/* -------------------------------------------------------------------------- */
+
 app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve static files from uploads directory
+/* -------------------------------------------------------------------------- */
+/*                              STATIC FILES                                  */
+/* -------------------------------------------------------------------------- */
+
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-app.use('/uploads/avatars', express.static(path.join(path.dirname(__dirname), 'uploads', 'avatars')));
+app.use(
+  '/uploads/avatars',
+  express.static(path.join(process.cwd(), 'uploads', 'avatars'))
+);
 
-// Routes
+/* -------------------------------------------------------------------------- */
+/*                                   ROUTES                                   */
+/* -------------------------------------------------------------------------- */
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/contacts', contactRoutes);
 
-// Socket.io setup
+/* -------------------------------------------------------------------------- */
+/*                                 SOCKET.IO                                  */
+/* -------------------------------------------------------------------------- */
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
 socketHandler(io);
 
-// Connect to database and start server
+/* -------------------------------------------------------------------------- */
+/*                              START SERVER                                  */
+/* -------------------------------------------------------------------------- */
+
 const startServer = async () => {
   try {
-    // Connect to database
     await connectDatabase();
-    
-    // Start server
+
     const PORT = process.env.PORT || 3000;
     httpServer.listen(PORT, () => {
-      console.log(`🚀 [Server] Running on port ${PORT}`);
-      console.log(`📱 [Client] Expected at ${process.env.CLIENT_URL || 'https://whats-up-dev.vercel.app'}`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(
+        `🌍 Client allowed: ${
+          process.env.CLIENT_URL || 'https://whats-up-dev.vercel.app'
+        }`
+      );
     });
   } catch (error) {
-    console.error('❌ [Server] Failed to start:', error);
+    console.error('❌ Server failed to start:', error);
     process.exit(1);
   }
 };
