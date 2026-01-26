@@ -4,9 +4,13 @@ import dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
 
 const auth = async (req, res, next) => {
+  // ✅ Allow CORS preflight to pass through
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
