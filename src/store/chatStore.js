@@ -86,7 +86,8 @@ export const useChatStore = create((set, get) => ({
       }
 
       const data = await response.json();
-set({ messages: data, loading: false });
+set({ messages: data.reverse(), loading: false });
+
     } catch (error) {
       console.error('%c[Chat Store] Error selecting chat:', 'color: red', error);
       set({ error: error.message, loading: false });
